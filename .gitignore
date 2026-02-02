@@ -1,0 +1,3 @@
+﻿# Contract Registry ignore
+*.bak_*
+schemas/_schema_write_status_v1.txt
