@@ -1,0 +1,22 @@
+﻿{
+  "$id": "contract:nfl_ingest@1.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema","packet_id","commit_hash","producer","producer_instance","tenant","principal","event_type","event_time_utc","prev_links","payload_mode","payload_ref","producer_key_id","producer_sig_ref"],
+  "properties": {
+    "schema": {"type": "string", "const": "nfl.ingest.v1"},
+    "packet_id": {"$ref": "../common/sha256_hex.schema.json"},
+    "commit_hash": {"$ref": "../common/sha256_hex.schema.json"},
+    "producer": {"type": "string", "minLength": 1},
+    "producer_instance": {"type": "string", "minLength": 1},
+    "tenant": {"type": "string", "minLength": 1},
+    "principal": {"type": "string", "minLength": 1},
+    "event_type": {"type": "string", "minLength": 1},
+    "event_time_utc": {"type": "string", "format": "date-time"},
+    "prev_links": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "payload_mode": {"type": "string", "enum": ["pointer_only","inline_sealed","inline_plain"]},
+    "payload_ref": {"type": "string", "minLength": 1},
+    "producer_key_id": {"type": "string", "minLength": 1},
+    "producer_sig_ref": {"type": "string", "minLength": 1}
+  }
+}

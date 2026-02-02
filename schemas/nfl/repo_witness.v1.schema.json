@@ -1,0 +1,22 @@
+﻿{
+  "$id": "contract:repo_witness@1.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema","created_at_utc","producer","producer_instance","tenant","principal","packet_id","commit_hash","sig_path","outbox_rel","prev_witness_hash","witness_hash"],
+  "properties": {
+    "schema": {"type": "string", "const": "repo.witness.v1"},
+    "created_at_utc": {"type": "string", "format": "date-time"},
+    "producer": {"type": "string", "minLength": 1},
+    "producer_instance": {"type": "string", "minLength": 1},
+    "tenant": {"type": "string", "minLength": 1},
+    "principal": {"type": "string", "minLength": 1},
+    "packet_id": {"$ref": "../common/sha256_hex.schema.json"},
+    "commit_hash": {"$ref": "../common/sha256_hex.schema.json"},
+    "sig_path": {"type": "string", "minLength": 1},
+    "outbox_rel": {"type": "string", "minLength": 1},
+    "nfl_inbox_rel": {"type": "string"},
+    "pledge_log_hash": {"type": "string"},
+    "prev_witness_hash": {"type": "string", "minLength": 1},
+    "witness_hash": {"$ref": "../common/sha256_hex.schema.json"}
+  }
+}

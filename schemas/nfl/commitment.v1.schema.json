@@ -1,0 +1,20 @@
+﻿{
+  "$id": "contract:commitment_payload@1.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema","producer","producer_instance","tenant","principal","event_type","event_time_utc","prev_links","content_ref","strength"],
+  "properties": {
+    "schema": {"type": "string", "const": "commitment.v1"},
+    "producer": {"type": "string", "minLength": 1},
+    "producer_instance": {"type": "string", "minLength": 1},
+    "tenant": {"type": "string", "minLength": 1},
+    "principal": {"type": "string", "minLength": 1},
+    "event_type": {"type": "string", "minLength": 1},
+    "event_time_utc": {"type": "string", "format": "date-time"},
+    "prev_links": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "content_ref": {"type": "string", "minLength": 1},
+    "strength": {"type": "string", "enum": ["evidence","deterministic"]},
+    "meta": {"type": "object"},
+    "notes_ref": {"type": "string"}
+  }
+}

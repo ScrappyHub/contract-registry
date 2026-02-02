@@ -1,0 +1,22 @@
+﻿{
+  "$id": "contract:sig_envelope@1.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema","algo","key_id","signing_context","signs"],
+  "properties": {
+    "schema": {"type": "string", "const": "sig_envelope.v1"},
+    "algo": {"type": "string", "const": "ed25519"},
+    "key_id": {"type": "string", "minLength": 1},
+    "signing_context": {"type": "string", "const": "nfl.ingest.v1"},
+    "signs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit_hash","packet_id"],
+      "properties": {
+        "commit_hash": {"$ref": "../common/sha256_hex.schema.json"},
+        "packet_id": {"$ref": "../common/sha256_hex.schema.json"},
+        "ingest_hash": {"$ref": "../common/sha256_hex.schema.json"}
+      }
+    }
+  }
+}

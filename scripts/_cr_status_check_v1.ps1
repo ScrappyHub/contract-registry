@@ -22,6 +22,17 @@ $Expected = @(
   "schemas\common\signing_context.schema.json",
   "docs\SIGNING_CONTEXT.md",
   "vectors\signing_context\README.md"
+  "schemas\nfl\commitment.v1.schema.json"
+  "schemas\nfl\nfl.ingest.v1.schema.json"
+  "schemas\nfl\sig_envelope.v1.schema.json"
+  "schemas\nfl\local_pledge.v1.schema.json"
+  "schemas\nfl\repo_witness.v1.schema.json"
+  "schemas\nfl\packet_manifest.v1.schema.json"
+  "docs\nfl\SPEC_NFL_HANDOFF_v1_1.md"
+  "docs\nfl\CANON_RULES_JSON_v1.md"
+  "docs\nfl\PATHS_RULES_v1.md"
+  "vectors\nfl\v1_1\README.md"
+  "vectors\nfl\v1_1\sample_packet\README.md"
 )
 
 foreach ($r in $Expected) {
