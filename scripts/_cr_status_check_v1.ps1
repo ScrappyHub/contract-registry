@@ -19,6 +19,9 @@ $Expected = @(
   "schemas\license\license.schema.json",
   "schemas\license\license_usage_log_entry.schema.json",
   "schemas\_schema_write_status_v1.txt"
+  "schemas\common\signing_context.schema.json",
+  "docs\SIGNING_CONTEXT.md",
+  "vectors\signing_context\README.md"
 )
 
 foreach ($r in $Expected) {
