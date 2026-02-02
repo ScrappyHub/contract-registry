@@ -1,0 +1,44 @@
+﻿{
+  "$id": "contract:watchtower_ingestion_receipt@1.0.0",
+  "type": "object",
+  "required": ["receipt_id","ingested_at","source_packet_sha256","source_type","source_sha256","outcome","reasons","signature"],
+  "properties": {
+    "receipt_id": {"type":"string"},
+    "ingested_at": {"type":"string"},
+
+    "source_packet_sha256": {"$ref":"../common/sha256_hex.schema.json"},
+
+    "source_type": {
+      "type":"string",
+      "enum":["triad_receipt","wrapper_attestation","platform_attestation","evidence_bundle","other"]
+    },
+
+    "source_sha256": {"$ref":"../common/sha256_hex.schema.json"},
+
+    "outcome": {"type":"string","enum":["accepted","rejected","ingested_only"]},
+
+    "reasons": {
+      "type":"array",
+      "items":{"type":"string"},
+      "description":"Reason codes if rejected or ingested_only."
+    },
+
+    "triad_roots": {
+      "type":"object",
+      "description":"If source_type is triad_receipt, include the declared roots for indexing (Watchtower does not re-check semantics).",
+      "properties": {
+        "artifact_id": {"type":"string"},
+        "block_root": {"$ref":"../common/sha256_hex.schema.json"},
+        "semantic_root": {"$ref":"../common/sha256_hex.schema.json"},
+        "transcript_root": {"$ref":"../common/sha256_hex.schema.json"},
+        "policy_hash": {"$ref":"../common/sha256_hex.schema.json"},
+        "identity_hash": {"$ref":"../common/sha256_hex.schema.json"},
+        "result": {"type":"string","enum":["PASS","FAIL"]}
+      },
+      "additionalProperties": false
+    },
+
+    "signature": {"$ref":"../common/signature_envelope.schema.json"}
+  },
+  "additionalProperties": false
+}

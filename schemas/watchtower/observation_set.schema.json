@@ -1,0 +1,66 @@
+﻿{
+  "$id": "contract:observation_set@1.0.0",
+  "type": "object",
+  "required": ["observation_id","device_id","observed_at","facts","signature"],
+  "properties": {
+    "observation_id": {"type":"string"},
+    "device_id": {"type":"string"},
+    "observed_at": {"type":"string"},
+
+    "facts": {
+      "type":"object",
+      "description":"Volatile observations only (evidence). Never identity-defining.",
+      "properties": {
+        "hostname": {"type":"string"},
+        "os": {
+          "type":"object",
+          "properties": {
+            "name": {"type":"string"},
+            "version": {"type":"string"},
+            "build": {"type":"string"}
+          },
+          "additionalProperties": false
+        },
+        "patch_level": {"type":"string"},
+        "installed": {"type":"array","items":{"type":"string"}},
+        "network": {
+          "type":"object",
+          "properties": {
+            "interfaces": {"type":"array","items":{"type":"string"}},
+            "ips": {"type":"array","items":{"type":"string"}},
+            "routes": {"type":"array","items":{"type":"string"}}
+          },
+          "additionalProperties": false
+        },
+        "services": {"type":"array","items":{"type":"string"}},
+        "processes": {"type":"array","items":{"type":"string"}},
+        "storage": {
+          "type":"object",
+          "properties": {
+            "free_bytes": {"type":"integer","minimum":0},
+            "smart_summary": {"type":"string"}
+          },
+          "additionalProperties": false
+        },
+        "security_posture": {
+          "type":"object",
+          "properties": {
+            "av_enabled": {"type":"boolean"},
+            "firewall_enabled": {"type":"boolean"}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": true
+    },
+
+    "hashes": {
+      "type":"object",
+      "description":"Optional content hashes of payload components if emitted as separate files.",
+      "additionalProperties": {"$ref":"../common/sha256_hex.schema.json"}
+    },
+
+    "signature": {"$ref":"../common/signature_envelope.schema.json"}
+  },
+  "additionalProperties": false
+}
