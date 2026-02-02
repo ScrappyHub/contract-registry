@@ -1,0 +1,41 @@
+﻿{
+  "$id": "contract:signing_context@1.0.0",
+  "type": "object",
+  "description": "LOCKED v1: defines canonicalization + signed_sha256 + detached signature envelope for a context type.",
+  "required": ["context_type","canonicalization","signed_sha256","signature_envelope"],
+  "properties": {
+    "context_type": {
+      "type": "string",
+      "enum": ["packet_manifest","triad_receipt","watchtower_ingestion_receipt","trust_bundle","license","gate_decision"]
+    },
+    "canonicalization": {
+      "type": "object",
+      "description": "Canonical JSON rules used to produce the bytes that are hashed and signed.",
+      "required": ["format","encoding","line_endings","key_order"],
+      "properties": {
+        "format": {"type": "string", "const": "json"},
+        "encoding": {"type": "string", "const": "utf-8"},
+        "line_endings": {"type": "string", "const": "lf"},
+        "key_order": {"type": "string", "const": "lexicographic"}
+      },
+      "additionalProperties": false
+    },
+    "signed_sha256": {"$ref": "./sha256_hex.schema.json"},
+    "signed_components": {
+      "type": "array",
+      "description": "Optional list of named components included in the signed hash, for multi-file contexts.",
+      "items": {
+        "type": "object",
+        "required": ["name","sha256"],
+        "properties": {
+          "name": {"type": "string"},
+          "sha256": {"$ref": "./sha256_hex.schema.json"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "signature_envelope": {"$ref": "./signature_envelope.schema.json"},
+    "notes": {"type": "string"}
+  },
+  "additionalProperties": false
+}
