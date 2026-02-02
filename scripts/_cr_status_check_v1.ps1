@@ -33,6 +33,8 @@ $Expected = @(
   "docs\nfl\PATHS_RULES_v1.md"
   "vectors\nfl\v1_1\README.md"
   "vectors\nfl\v1_1\sample_packet\README.md"
+  "docs\nfl\README.md"
+  "docs\nfl\PRODUCER_POWERSHELL_RULES_v1.md"
 )
 
 foreach ($r in $Expected) {

@@ -44,3 +44,5 @@ Do NOT fork or modify schema semantics without version bump.
 Any breaking change requires new contract version (v1_2, v2_0, etc.) and new vectors.
 
 Status: LOCKED
+## Producer implementation rules (drift prevention)
+- docs/nfl/PRODUCER_POWERSHELL_RULES_v1.md
