@@ -1,0 +1,6 @@
+﻿{
+  "schema": "engine.registry.v1",
+  "generated_at_utc": "2026-02-02T00:00:00Z",
+  "registry_version": "1.0.0",
+  "engines": [{"engine_id": "cr.verifier", "engine_type": "verifier", "version": "1.0.0", "entrypoint": "scripts/cr_verify.ps1", "enforced_contracts": ["docs/CONSUME.md"]}]
+}

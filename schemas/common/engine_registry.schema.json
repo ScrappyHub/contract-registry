@@ -1,0 +1,27 @@
+﻿{
+  "$id": "contract:engine_registry@1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema","generated_at_utc","registry_version","engines"],
+  "properties": {
+    "schema": {"type": "string", "const": "engine.registry.v1"},
+    "generated_at_utc": {"type": "string", "format": "date-time"},
+    "registry_version": {"type": "string", "minLength": 1},
+    "engines": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["engine_id","engine_type","version","entrypoint","enforced_contracts"],
+        "properties": {
+          "engine_id": {"type": "string", "minLength": 1},
+          "engine_type": {"type": "string", "enum": ["packager","verifier","signature_verifier","overlay_evaluator","schema_validator","audit_reporter"]},
+          "version": {"type": "string", "minLength": 1},
+          "entrypoint": {"type": "string", "minLength": 1},
+          "enforced_contracts": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+        }
+      }
+    }
+  }
+}

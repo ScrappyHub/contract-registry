@@ -39,6 +39,16 @@ $Expected = @(
   "docs\CONSUME.md"
   "docs\OVERLAY_CONSTITUTION.md"
   "schemas\common\contracts_lock.schema.json"
+  "docs\ENGINE_REGISTRY.md"
+  "docs\LICENSING_ENTITLEMENTS.md"
+  "docs\STRESS_TEST_PLAN.md"
+  "docs\INTEGRATION_LAW.md"
+  "schemas\common\engine_registry.schema.json"
+  "schemas\common\entitlements.schema.json"
+  "docs\examples\engine_registry.sample.json"
+  "docs\examples\entitlements.sample.json"
+  "docs\examples\contracts.lock.sample.json"
+  "scripts\_cr_stress_test_v1.ps1"
 )
 
 foreach ($r in $Expected) {

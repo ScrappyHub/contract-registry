@@ -1,0 +1,7 @@
+﻿{
+  "schema": "contracts.lock.v1",
+  "generated_at_utc": "2026-02-02T00:00:00Z",
+  "base": {"packet_id": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "version": "1.0.0", "source": "contract-registry release packet"},
+  "trust_bundle": {"bundle_id": "cr-trust-bundle-v1", "source": "trust packet"},
+  "overlays": []
+}
