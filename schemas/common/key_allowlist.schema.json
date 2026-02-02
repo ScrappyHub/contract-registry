@@ -1,0 +1,19 @@
+﻿{
+  "$id": "contract:key_allowlist@1.0.0",
+  "type": "object",
+  "description": "Watchtower allowlist mapping principal -> public keys (material/format is implementation-defined).",
+  "additionalProperties": {
+    "type": "array",
+    "items": {
+      "type": "object",
+      "required": ["key_id","public_key"],
+      "properties": {
+        "key_id": {"type":"string"},
+        "public_key": {"type":"string"},
+        "alg": {"type":"string", "enum":["ed25519-ssh-keygen-y"]},
+        "active": {"type":"boolean"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

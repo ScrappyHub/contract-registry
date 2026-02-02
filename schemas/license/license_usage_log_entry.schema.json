@@ -1,0 +1,14 @@
+﻿{
+  "$id": "contract:license_usage_log_entry@1.0.0",
+  "type": "object",
+  "required": ["entry_id","prev_hash","timestamp","license_id"],
+  "properties": {
+    "entry_id": {"type":"string"},
+    "prev_hash": {"$ref":"../common/sha256_hex.schema.json"},
+    "timestamp": {"type":"string"},
+    "license_id": {"type":"string"},
+    "last_commit_artifact_id": {"type":"string"},
+    "payload_hash": {"$ref":"../common/sha256_hex.schema.json"}
+  },
+  "additionalProperties": false
+}

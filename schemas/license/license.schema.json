@@ -1,0 +1,27 @@
+﻿{
+  "$id": "contract:license@1.0.0",
+  "type": "object",
+  "required": ["license_id","org_key_id","org_public_key","capabilities","limits","signature"],
+  "properties": {
+    "license_id": {"type":"string"},
+    "org_key_id": {"type":"string"},
+    "org_public_key": {"type":"string"},
+    "capabilities": {"type":"object"},
+    "limits": {
+      "type":"object",
+      "properties": {
+        "max_devices": {"type":"integer","minimum":0},
+        "max_verifiers": {"type":"integer","minimum":0},
+        "allow_raw_partition": {"type":"boolean"},
+        "allow_raw_disk": {"type":"boolean"},
+        "allow_boot_commit": {"type":"boolean"},
+        "parity_max_data_bytes": {"type":"integer","minimum":0},
+        "require_signatures_for_commit": {"type":"boolean"}
+      },
+      "additionalProperties": false
+    },
+    "expiry": {"type":"string", "description":"Optional; v1 default none/perpetual"},
+    "signature": {"$ref":"../common/signature_envelope.schema.json"}
+  },
+  "additionalProperties": false
+}

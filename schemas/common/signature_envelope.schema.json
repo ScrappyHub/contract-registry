@@ -1,0 +1,13 @@
+﻿{
+  "$id": "contract:signature_envelope@1.0.0",
+  "type": "object",
+  "required": ["principal","key_id","alg","sig"],
+  "properties": {
+    "principal": {"$ref": "contract:principal@1.0.0"},
+    "key_id": {"type":"string"},
+    "alg": {"type":"string", "enum":["ed25519-ssh-keygen-y"]},
+    "sig": {"type":"string", "description":"Detached signature bytes (encoding defined by implementation; v1 typically base64)"},
+    "signed_hash": {"type":"string", "description":"Optional sha256 of canonical bytes that were signed"}
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,14 @@
+﻿{
+  "$id": "contract:transport_packet_manifest@1.0.0",
+  "type": "object",
+  "required": ["packet_sha256","created_at","sender","payload_type","payload_refs"],
+  "properties": {
+    "packet_sha256": {"$ref":"../common/sha256_hex.schema.json"},
+    "created_at": {"type":"string"},
+    "sender": {"$ref":"../common/principal.schema.json"},
+    "payload_type": {"type":"string", "description":"e.g., evidence_bundle, triad_receipt, watchtower_receipt"},
+    "payload_refs": {"type":"array","items":{"type":"string"}},
+    "sha256sums_digest": {"$ref":"../common/sha256_hex.schema.json"}
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,28 @@
+﻿{
+  "$id": "contract:trust_bundle@1.0.0",
+  "type": "object",
+  "required": ["product","bundle_id","issued_at","keys","signature"],
+  "properties": {
+    "product": {"type":"string", "description":"e.g., triad | clarity | watchtower"},
+    "bundle_id": {"type":"string"},
+    "issued_at": {"type":"string"},
+    "keys": {
+      "type":"array",
+      "items": {
+        "type":"object",
+        "required": ["principal","key_id","public_key","alg"],
+        "properties": {
+          "principal": {"$ref":"../common/principal.schema.json"},
+          "key_id": {"type":"string"},
+          "public_key": {"type":"string"},
+          "alg": {"type":"string","enum":["ed25519-ssh-keygen-y"]},
+          "scopes": {"type":"array","items":{"type":"string"}},
+          "revoked": {"type":"boolean"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "signature": {"$ref":"../common/signature_envelope.schema.json"}
+  },
+  "additionalProperties": false
+}

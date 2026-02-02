@@ -1,0 +1,16 @@
+﻿{
+  "$id": "contract:device_key_rotation@1.0.0",
+  "type": "object",
+  "required": ["device_id","old_key_id","new_key_id","rotation_reason","timestamp"],
+  "properties": {
+    "device_id": {"type":"string"},
+    "old_key_id": {"type":"string"},
+    "new_key_id": {"type":"string"},
+    "rotation_reason": {"type":"string"},
+    "proof_of_possession": {"type":"string", "description":"Optional proof artifact/ref; dual-sign claim if possible"},
+    "admin_approval_ref": {"type":"string"},
+    "timestamp": {"type":"string"},
+    "signature": {"$ref":"../common/signature_envelope.schema.json"}
+  },
+  "additionalProperties": false
+}

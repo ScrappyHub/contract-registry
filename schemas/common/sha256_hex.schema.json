@@ -1,0 +1,5 @@
+﻿{
+  "$id": "contract:sha256_hex@1.0.0",
+  "type": "string",
+  "pattern": "^[a-f0-9]{64}$"
+}

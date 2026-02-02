@@ -1,0 +1,16 @@
+﻿{
+  "$id": "contract:gate_decision@1.0.0",
+  "type": "object",
+  "required": ["decision_id","result","policy_code","timestamp","signature"],
+  "properties": {
+    "decision_id": {"type":"string"},
+    "result": {"type":"string","enum":["allow","deny"]},
+    "policy_code": {"type":"string"},
+    "reason_code": {"type":"string"},
+    "constraints": {"type":"object"},
+    "evidence_refs": {"type":"array","items":{"type":"string"}},
+    "timestamp": {"type":"string"},
+    "signature": {"$ref":"../common/signature_envelope.schema.json"}
+  },
+  "additionalProperties": false
+}

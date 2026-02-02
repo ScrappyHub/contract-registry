@@ -1,0 +1,17 @@
+﻿{
+  "$id": "contract:device_identity_update@1.0.0",
+  "type": "object",
+  "required": ["device_id","identity_class","device_public_key","timestamp"],
+  "properties": {
+    "device_id": {"type":"string"},
+    "identity_class": {"type":"string", "enum":["user-asserted","os-rooted","hardware-rooted"]},
+    "device_public_key": {"type":"string"},
+    "tpm_ek_pub_hash": {"$ref":"../common/sha256_hex.schema.json"},
+    "hardware_fingerprint_hash": {"$ref":"../common/sha256_hex.schema.json"},
+    "partition_fingerprint_summary_hash": {"$ref":"../common/sha256_hex.schema.json"},
+    "secure_boot_anchor_hash_summary": {"$ref":"../common/sha256_hex.schema.json"},
+    "timestamp": {"type":"string"},
+    "signature": {"$ref":"../common/signature_envelope.schema.json"}
+  },
+  "additionalProperties": false
+}

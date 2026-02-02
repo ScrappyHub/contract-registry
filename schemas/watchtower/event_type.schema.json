@@ -1,0 +1,27 @@
+﻿{
+  "$id": "contract:watchtower_event_type@1.0.0",
+  "type": "string",
+  "enum": [
+    "device.seen",
+    "device.join.requested",
+    "device.join.approved",
+    "device.enrolled",
+    "device.identity.updated",
+    "device.key.rotated",
+    "device.key.revoked",
+    "device.observation.recorded",
+    "device.attestation.received.platform",
+    "device.attestation.received.triad",
+    "device.attestation.received.wrapper",
+    "device.attestation.verified",
+    "device.posture.changed",
+    "device.quarantined",
+    "device.quarantine.exited",
+    "device.triad.run.receipt.ingested",
+    "device.triad.run.accepted",
+    "device.triad.run.rejected",
+    "ledger.checkpoint.seal",
+    "ledger.export.emitted",
+    "device.retired"
+  ]
+}
