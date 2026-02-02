@@ -1,0 +1,6 @@
+﻿{
+  "$id": "contract:principal@1.0.0",
+  "type": "string",
+  "description": "LOCKED principal format v1: <tenant>/<role>/<subject>",
+  "pattern": "^[^/]+/(owner|org_admin|device_admin|operator|auditor|device_agent|watchtower_authority)/(device/[^/]+|user/[^/]+|authority/watchtower)$"
+}
