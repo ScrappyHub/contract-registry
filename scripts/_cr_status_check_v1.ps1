@@ -35,6 +35,10 @@ $Expected = @(
   "vectors\nfl\v1_1\sample_packet\README.md"
   "docs\nfl\README.md"
   "docs\nfl\PRODUCER_POWERSHELL_RULES_v1.md"
+  "docs\RELEASE.md"
+  "docs\CONSUME.md"
+  "docs\OVERLAY_CONSTITUTION.md"
+  "schemas\common\contracts_lock.schema.json"
 )
 
 foreach ($r in $Expected) {
