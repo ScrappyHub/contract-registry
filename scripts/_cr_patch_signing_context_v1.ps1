@@ -106,3 +106,4 @@ Set-Content -LiteralPath $Out -Value ($ReceiptLines -join "`n") -Encoding UTF8 -
 Write-Host "OK: added signing_context contract + doc + vector; refreshed receipt"
 
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Root "scripts\_cr_status_check_v1.ps1")
+# DEPRECATED: this script failed to parse; do not use. Use _cr_patch_signing_context_v1_v2.ps1
