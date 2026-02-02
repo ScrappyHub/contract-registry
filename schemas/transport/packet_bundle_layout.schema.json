@@ -1,0 +1,53 @@
+﻿{
+  "$id": "contract:packet_bundle_layout@1.0.0",
+  "type": "object",
+  "description": "Canonical directory bundle layout for offline transport packets.",
+  "required": ["layout_version","required_paths","path_rules","hashing_rules","signing_rules"],
+  "properties": {
+    "layout_version": {"type":"string","const":"v1"},
+    "required_paths": {
+      "type":"array",
+      "items":{"type":"string"},
+      "minItems": 4,
+      "uniqueItems": true,
+      "default": ["manifest.json","sha256sums.txt","signatures/","payload/"]
+    },
+    "path_rules": {
+      "type":"object",
+      "required": ["canonical_separator","deny_absolute_paths","deny_dotdot","deny_drive_letters"],
+      "properties": {
+        "canonical_separator": {"type":"string","const":"/"},
+        "deny_absolute_paths": {"type":"boolean","const":true},
+        "deny_dotdot": {"type":"boolean","const":true},
+        "deny_drive_letters": {"type":"boolean","const":true}
+      },
+      "additionalProperties": false
+    },
+    "hashing_rules": {
+      "type":"object",
+      "required": ["hash_file","hash_alg","exclude_globs"],
+      "properties": {
+        "hash_file": {"type":"string","const":"sha256sums.txt"},
+        "hash_alg": {"type":"string","const":"sha256"},
+        "exclude_globs": {
+          "type":"array",
+          "items":{"type":"string"},
+          "default": ["signatures/*.sig"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "signing_rules": {
+      "type":"object",
+      "required": ["detached_signatures","signature_dir","sig_extension","verification_tool"],
+      "properties": {
+        "detached_signatures":{"type":"boolean","const":true},
+        "signature_dir":{"type":"string","const":"signatures/"},
+        "sig_extension":{"type":"string","const":".sig"},
+        "verification_tool":{"type":"string","const":"ssh-keygen -Y verify"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

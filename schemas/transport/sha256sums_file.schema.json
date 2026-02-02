@@ -1,0 +1,33 @@
+﻿{
+  "$id": "contract:sha256sums_file@1.0.0",
+  "type": "object",
+  "description": "Canonical sha256sums.txt format for directory bundle sealing.",
+  "required": ["format","hash_alg","line_format","path_rules","ordering"],
+  "properties": {
+    "format": {"type":"string","const":"sha256sums.txt"},
+    "hash_alg": {"type":"string","const":"sha256"},
+    "line_format": {
+      "type":"string",
+      "description":"Each line: <64 lowercase hex><two spaces><relative path>.",
+      "const":"<sha256hex><sp><sp><relpath>"
+    },
+    "path_rules": {
+      "type":"object",
+      "required":["relative_only","no_dotdot","no_drive_letters","no_leading_slash","separator"],
+      "properties": {
+        "relative_only":{"type":"boolean","const":true},
+        "no_dotdot":{"type":"boolean","const":true},
+        "no_drive_letters":{"type":"boolean","const":true},
+        "no_leading_slash":{"type":"boolean","const":true},
+        "separator":{"type":"string","const":"/"}
+      },
+      "additionalProperties": false
+    },
+    "ordering": {
+      "type":"string",
+      "description":"Lines sorted lexicographically by relative path (byte order).",
+      "const":"lexicographic_by_path"
+    }
+  },
+  "additionalProperties": false
+}
