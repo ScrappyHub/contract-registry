@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://contract-registry.local/schemas/registry.schema.json",
+  "title": "ContractRegistry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["registry_id","version","generated_utc","contracts"],
+  "properties": {
+    "registry_id":   { "type": "string", "minLength": 3, "maxLength": 128, "pattern": "^[a-z0-9][a-z0-9._-]+$" },
+    "version":       { "type": "string", "minLength": 1, "maxLength": 64,  "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$" },
+    "generated_utc": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$" },
+    "contracts": { "type": "array", "items": { "$ref": "contract.schema.json" } }
+  }
+}

@@ -1,0 +1,27 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  audit:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse-gate NeverLost scripts
+        shell: pwsh
+        run: |
+          $ErrorActionPreference="Stop"
+          Set-StrictMode -Version Latest
+          $paths = @(
+            "scripts/_lib_neverlost_v1.ps1",
+            "scripts/make_allowed_signers_v1.ps1",
+            "scripts/show_identity_v1.ps1"
+          )
+          foreach ($p in $paths) {
+            if (-not (Test-Path -LiteralPath $p)) { throw "Missing: $p" }
+            [ScriptBlock]::Create((Get-Content -Raw -LiteralPath $p)) | Out-Null
+          }
+          "OK"
+      - name: Run progress audit (if present)
+        shell: pwsh
+        run: |
+          $a="scripts/_cr_audit_progress_v2.ps1"
+          if (Test-Path -LiteralPath $a) { pwsh -NoProfile -ExecutionPolicy Bypass -File $a -RepoRoot (Get-Location).Path } else { "skip" }
