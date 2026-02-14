@@ -24,3 +24,7 @@ Thumbs.db
 # --- backup variants we generate ---
 *.bak_*
 
+
+# --- dev graveyard (non-product) ---
+scripts/_graveyard/
+
