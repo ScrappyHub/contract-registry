@@ -25,8 +25,12 @@ $Grave = Join-Path $ScriptsDir "_graveyard"
 EnsureDir $Grave
 
 $stamp = [DateTime]::UtcNow.ToString("yyyyMMdd_HHmmss")
-$Bucket = Join-Path $Grave ("accidental_" + $stamp)
-EnsureDir $Bucket
+$Bucket = $null
+function EnsureBucket(){
+  if ($null -ne $Bucket) { return }
+  $Bucket = Join-Path $Grave ("accidental_" + $stamp)
+  EnsureDir $Bucket
+}
 
 # Patterns that should NEVER live in contract-registry surface.
 # Add/remove patterns here as you discover more "poison" artifacts.
@@ -51,6 +55,7 @@ function MoveWithReceipt([string]$src){
   if (-not (Test-Path -LiteralPath $src -PathType Leaf)) { return }
   if (IsUnderGraveyard $src) { return }
   $rel = $src.Substring(([IO.Path]::GetFullPath($RepoRoot)).TrimEnd("\").Length).TrimStart("\")
+  EnsureBucket
   $dst = Join-Path $Bucket $rel
   EnsureDir (Split-Path -Parent $dst)
   $h = Sha256HexFile $src
@@ -85,9 +90,11 @@ $rcpt = New-Object System.Collections.Generic.List[string]
 [void]$rcpt.Add("bucket: " + $Bucket)
 [void]$rcpt.Add("moved_count: " + (@(@($Moved)).Count))
 foreach($m in @(@($Moved))){ [void]$rcpt.Add("moved: " + $m) }
-$ReceiptPath = Join-Path $Bucket "quarantine_receipt.txt"
+$ReceiptBase = $(if ($null -eq $Bucket) { $Grave } else { $Bucket })
+$ReceiptName = $(if ($null -eq $Bucket) { ("quarantine_receipt_empty_" + $stamp + ".txt") } else { "quarantine_receipt.txt" })
+$ReceiptPath = Join-Path $ReceiptBase $ReceiptName
 WriteUtf8NoBomLf $ReceiptPath ((@($rcpt.ToArray()) -join "`n") + "`n")
-
-Write-Host ("QUARANTINE_OK: bucket=" + $Bucket) -ForegroundColor Green
+$b = $(if ($null -eq $Bucket) { "(none)" } else { $Bucket })
+Write-Host ("QUARANTINE_OK: bucket=" + $b) -ForegroundColor Green
 Write-Host ("moved_count=" + (@(@($Moved)).Count)) -ForegroundColor Gray
 Write-Host ("receipt=" + $ReceiptPath) -ForegroundColor Gray
