@@ -1,6 +1,3 @@
-# CONTRACT_REGISTRY_PATCH_ELIMINATE_PID_AUTOVAR_V4
-# CONTRACT_REGISTRY_PATCH_RENAME_PID_TOKEN_V3
-# CONTRACT_REGISTRY_PATCH_RENAME_PID_V2
 # CONTRACT_REGISTRY_PATCH_RENAME_PID_V1
 param(
  [Parameter(Mandatory=$true)][string]$RepoRoot,
@@ -95,7 +92,7 @@ $pidPath = Join-Path $Built "packet_id.txt"
 $sumsPath = Join-Path $Built "sha256sums.txt"
 RequireFile $pidPath
 RequireFile $sumsPath
-$ChildPid = (ReadTextUtf8 $pidPath).Trim()
+$pid = (ReadTextUtf8 $pidPath).Trim()
 $sums = ReadTextUtf8 $sumsPath
 
 if (-not (Test-Path -LiteralPath $VecRoot -PathType Container)) {
@@ -103,7 +100,7 @@ if (-not (Test-Path -LiteralPath $VecRoot -PathType Container)) {
  EnsureDir $VecRoot
  if (Test-Path -LiteralPath $GoldenPacket -PathType Container) { Remove-Item -LiteralPath $GoldenPacket -Recurse -Force }
  Copy-Item -LiteralPath $Built -Destination $GoldenPacket -Recurse -Force
- WriteUtf8NoBomLf $ExpPid ($ChildPid + "`n")
+ WriteUtf8NoBomLf $ExpPid ($pid + "`n")
  WriteUtf8NoBomLf $ExpSums $sums
  Write-Host ("GOLDEN_VECTOR_CREATED: " + $VecRoot) -ForegroundColor Green
 } else {
@@ -113,7 +110,7 @@ if (-not (Test-Path -LiteralPath $VecRoot -PathType Container)) {
  if (-not (Test-Path -LiteralPath $GoldenPacket -PathType Container)) { Die ("GOLDEN_PACKET_MISSING: " + $GoldenPacket) }
  $pidExp = (ReadTextUtf8 $ExpPid).Trim()
  $sumsExp = ReadTextUtf8 $ExpSums
- if ($pidExp -ne $ChildPid) { Die ("GOLDEN_MISMATCH_PACKET_ID expected=" + $pidExp + " got=" + $ChildPid) }
+ if ($pidExp -ne $pid) { Die ("GOLDEN_MISMATCH_PACKET_ID expected=" + $pidExp + " got=" + $pid) }
  if ($sumsExp -ne $sums) { Die "GOLDEN_MISMATCH_SHA256SUMS: sha256sums.txt differs from expected" }
  # File-by-file hash compare using sha256sums list
  $lines = @(@($sumsExp -split "`n")) | Where-Object { $_ -and $_.Trim().Length -gt 0 }
@@ -147,7 +144,7 @@ $r = New-Object System.Collections.Generic.List[string]
 [void]$r.Add("created_utc_pinned: " + $CreatedUtc)
 [void]$r.Add("stamp_pinned: " + $Stamp)
 [void]$r.Add("vector_root: " + $VecRoot)
-[void]$r.Add("packet_id: " + $ChildPid)
+[void]$r.Add("packet_id: " + $pid)
 [void]$r.Add("expected_packet_id_file: " + $ExpPid)
 [void]$r.Add("expected_sha256sums_file: " + $ExpSums)
 WriteUtf8NoBomLf $rPath ((@($r.ToArray()) -join "`n") + "`n")

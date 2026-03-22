@@ -197,20 +197,25 @@ if (-not $NoSign) {
 }
 
 # 6) sha256sums.txt LAST (final bytes on disk)
+$sumLines = New-Object System.Collections.Generic.List[string]
+function AddSum([string]$rel){
+  $p = Join-Path $PacketRoot $rel
+  RequireFile $p
+  $h = Sha256HexFile $p
+  [void]$sumLines.Add(($h + "  " + $rel))
+}
+AddSum "manifest.json"
+AddSum "packet_id.txt"
+AddSum "payload/contract.json"
+AddSum "payload/contract_ref.txt"
+AddSum "payload/commit.payload.json"
+AddSum "payload/commit_hash.txt"
+if ($SigPath) { AddSum "signatures/packet_id.sig" }
 $ShaPath = Join-Path $PacketRoot "sha256sums.txt"
 # Normalize sha256sums lines to "<64hex><two spaces><relpath>" and fail fast if malformed.
-if(-not (Get-Variable -Name sumLines -Scope Local -ErrorAction SilentlyContinue)){ Die "MISSING_SUM_LINES: expected $sumLines list before sha256sums write" }
 $fixed = New-Object System.Collections.Generic.List[string]
 foreach($ln in @(@($sumLines.ToArray()))){
-  if([string]::IsNullOrWhiteSpace($ln)){ continue }
-  $mm = [System.Text.RegularExpressions.Regex]::Match($ln,'^(?<h>[0-9a-f]{64})\s+(?<p>.+)$' )
-  if (-not $mm.Success) { Die ("BAD_SHA256SUMS_LINE_FMT(gen): " + $ln) }
-  $h = $mm.Groups["h"].Value.ToLowerInvariant()
-  $p = $mm.Groups["p"].Value
-  if($p -ne $p.Trim()){ Die ("BAD_SHA256SUMS_LINE_WS(gen): " + $ln) }
-  [void]$fixed.Add(($h + "  " + $p))
-}
-WriteUtf8NoBomLf $ShaPath ((@($fixed.ToArray()) -join "``n") + "``n")
+  $mm = [System.Text.RegularExpressions.Regex]::Match($ln,'^(?<h>[0-9a-f]{64})\s+(?<p>.+)
 # 7) Receipt (packet-local)
 $rc = New-Object System.Collections.Generic.List[string]
 [void]$rc.Add("schema: contract_registry_release_receipt.v1")
@@ -226,10 +231,37 @@ $rc = New-Object System.Collections.Generic.List[string]
 [void]$rc.Add("signed: " + $(if($NoSign){"false"}else{"true"}))
 if ($SigPath) { [void]$rc.Add("sig_path: signatures/packet_id.sig") }
 [void]$rc.Add("sha256sums: sha256sums.txt")
-$ReceiptDir = Join-Path $PacketRoot "receipts"
-EnsureDir $ReceiptDir
-$ReceiptPath = Join-Path $ReceiptDir "release_receipt.txt"
-WriteUtf8NoBomLf $ReceiptPath ((@($rc.ToArray()) -join "``n") + "``n")
+$ReceiptPath = Join-Path (Join-Path $PacketRoot "receipts") "release_receipt.txt"
+WriteUtf8NoBomLf $ReceiptPath ((@($rc.ToArray()) -join "`n") + "`n")
+
+Write-Host ("RELEASE_PACKET_OK: " + $PacketRoot) -ForegroundColor Green
+Write-Host ("packet_id=" + $PacketId) -ForegroundColor Gray
+Write-Host ("receipt=" + $ReceiptPath) -ForegroundColor Gray
+ )
+  if (-not $mm.Success) { Die ("BAD_SHA256SUMS_LINE_FMT(gen): " + $ln) }
+  $h = $mm.Groups["h"].Value
+  $p = $mm.Groups["p"].Value
+  [void]$fixed.Add(($h + "  " + $p))
+}
+WriteUtf8NoBomLf $ShaPath ((@($fixed.ToArray()) -join "`n") + "`n")
+# 7) Receipt (packet-local)
+$rc = New-Object System.Collections.Generic.List[string]
+[void]$rc.Add("schema: contract_registry_release_receipt.v1")
+[void]$rc.Add("utc: " + [DateTime]::UtcNow.ToString("o"))
+[void]$rc.Add("repo_root: " + $RepoRoot)
+[void]$rc.Add("packet_root: " + $PacketRoot)
+[void]$rc.Add("producer: " + $Producer)
+[void]$rc.Add("namespace: " + $Namespace)
+[void]$rc.Add("contract_ref: " + $ContractRef)
+[void]$rc.Add("contract_sha256: " + $contract_sha256)
+[void]$rc.Add("commit_hash: " + $commitHash)
+[void]$rc.Add("packet_id: " + $PacketId)
+[void]$rc.Add("signed: " + $(if($NoSign){"false"}else{"true"}))
+if ($SigPath) { [void]$rc.Add("sig_path: signatures/packet_id.sig") }
+[void]$rc.Add("sha256sums: sha256sums.txt")
+$ReceiptPath = Join-Path (Join-Path $PacketRoot "receipts") "release_receipt.txt"
+WriteUtf8NoBomLf $ReceiptPath ((@($rc.ToArray()) -join "`n") + "`n")
+
 Write-Host ("RELEASE_PACKET_OK: " + $PacketRoot) -ForegroundColor Green
 Write-Host ("packet_id=" + $PacketId) -ForegroundColor Gray
 Write-Host ("receipt=" + $ReceiptPath) -ForegroundColor Gray

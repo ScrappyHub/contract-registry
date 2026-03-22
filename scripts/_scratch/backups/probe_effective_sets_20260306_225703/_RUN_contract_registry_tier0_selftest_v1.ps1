@@ -87,6 +87,10 @@ WriteUtf8NoBomLf $Receipt ((@($rc.ToArray()) -join "`n") + "`n")
 # Determine receipt directory without requiring $RcptDir to exist yet.
 $RcptDirLocal = $null
 if(Test-Path variable:RcptDir){ $RcptDirLocal = $RcptDir }
+elseif(Test-Path variable:ReceiptPath){ $RcptDirLocal = Split-Path -Parent $ReceiptPath }
+$ReceiptPathLocal = $null
+if(Test-Path variable:ReceiptPath){ $ReceiptPathLocal = $ReceiptPath } else { $ReceiptPathLocal = Join-Path $RcptDirLocal "receipt.txt" }
+RequireFile $ReceiptPathLocal
 
 # CONTRACT_REGISTRY_TIER0_EFFECTIVE_SETS_WIRED_V1
 # Resolve effective policy/schema sets and bind receipt hash into Tier-0 receipt.

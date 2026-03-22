@@ -1,0 +1,362 @@
+CONTRACT REGISTRY — TIER-0 LOCK HANDOFF
+
+Canonical Status Package
+Instrument Environment: Windows PowerShell 5.1 + StrictMode Latest
+Repo Root: C:\dev\contract-registry
+Date: 2026-03-07
+
+1 — WHAT THIS PROJECT IS (TO SPEC)
+
+Contract Registry is a deterministic legal artifact registry and release instrument.
+
+It produces, verifies, and records canonical contract release packets that represent:
+
+a contract definition
+
+its schema
+
+policy overlays
+
+the effective policy set applied to the release
+
+deterministic receipts proving what rules were in effect
+
+The registry does not mutate contract truth.
+It produces verifiable artifacts whose correctness can be independently proven.
+
+Core guarantees:
+
+deterministic packet generation
+
+Packet Constitution v1 Option-A compliance
+
+canonical bytes (UTF-8 no BOM + LF)
+
+deterministic hashing
+
+non-mutating verification
+
+append-only receipts
+
+This allows contract artifacts to be:
+
+legally verifiable
+
+cryptographically reproducible
+
+ecosystem-portable
+
+2 — TIER-0 SCOPE
+
+Tier-0 is standalone instrument mode.
+
+It proves that the registry can:
+
+build a contract release packet
+
+verify that packet
+
+compare it to golden vectors
+
+produce deterministic receipts
+
+bind the effective policy/schema set used during the release
+
+No network or SaaS infrastructure is required.
+
+3 — INSTRUMENT ENVIRONMENT (LOCKED)
+
+Runtime requirements:
+
+Windows PowerShell 5.1
+Set-StrictMode Latest
+$ErrorActionPreference="Stop"
+
+Execution discipline:
+
+write script → parse-gate → run via child powershell.exe -File
+
+All artifacts:
+
+UTF-8 (no BOM)
+LF line endings
+deterministic ordering
+stable hashing
+4 — PACKET MODEL
+
+Contract releases are produced as directory packets.
+
+Example output:
+
+golden/tmp_outbox/
+   contract_release_example.contract.v1_20260101_000000/
+       manifest.json
+       packet_id.txt
+       sha256sums.txt
+       receipts/
+           release_receipt.txt
+
+Packet invariants:
+
+manifest.json MUST NOT contain packet_id
+packet_id.txt = SHA256(canonical manifest bytes)
+sha256sums.txt generated LAST
+verification is non-mutating
+5 — EFFECTIVE SETS MODEL (OVERLAY LAW)
+
+The registry distinguishes between:
+
+Base law
+canonical contract schema
+canonical policy bundle
+Overlay law
+policy overlays
+schema overlays
+environment overlays
+
+During Tier-0 execution the runner resolves:
+
+effective_sets/
+   policy_bundle.json
+   schema_bundle.json
+   receipt.txt
+
+The effective set receipt hash is then bound into the Tier-0 receipt.
+
+Example Tier-0 receipt lines:
+
+effective_sets_receipt_sha256: <sha256>
+effective_sets_receipt_path: effective_sets/receipt.txt
+
+This proves:
+
+what rule set governed the contract release
+
+without mutating the contract packet.
+
+6 — CURRENT VERIFIED GREEN OUTPUT
+
+Canonical Tier-0 run:
+
+PARSE_GATES_OK
+RELEASE_PACKET_OK
+VERIFY_OK
+GOLDEN_VECTOR_MATCH_OK
+RECEIPT_OK
+GOLDEN_OK
+GOLDEN_MAKER_OK
+EFFECTIVE_SETS_OK
+EFFECTIVE_SETS_WIRED_OK
+TIER0_OK
+TIER0_GREEN_OK
+
+Example evidence:
+
+EFFECTIVE_SETS_WIRED_OK: sha256=1d18ad3330a82f93e3aba3ddee8b7a704e8c9ecd6a2d186c4c5e2e849ca57ab7
+
+Receipt location:
+
+proofs/receipts/contract_registry_tier0_selftest_v1/<timestamp>/receipt.txt
+7 — TIER-0 DEFINITION OF DONE
+
+Tier-0 is complete when a clean machine can run one command and produce:
+
+deterministic packet generation
+
+packet verification
+
+golden vector match
+
+effective policy/schema set resolution
+
+receipt binding
+
+append-only deterministic receipts
+
+All scripts must:
+
+parse-gate cleanly
+run under StrictMode
+produce deterministic output
+8 — TIER-0 PRODUCT SURFACE
+
+Canonical scripts:
+
+scripts/
+   contract_registry_make_release_packet_v1.ps1
+   contract_registry_verify_packet_v1.ps1
+   contract_registry_resolve_effective_sets_v1.ps1
+   _RUN_contract_registry_tier0_selftest_v1.ps1
+
+Golden vectors:
+
+golden/release_vectors/
+
+Receipts:
+
+proofs/receipts/
+9 — WHAT TIER-0 DOES NOT INCLUDE
+
+Tier-0 does NOT include:
+
+multi-tenant registry
+contract marketplace
+user authentication
+API endpoints
+hosted registry database
+contract editing UI
+version governance UI
+
+Those belong to the hosted layer.
+
+10 — HOSTED LAYER (NEXT PHASE)
+
+After Tier-0 lock the system gains a hosted interface.
+
+The hosted layer must not change instrument correctness.
+
+It only orchestrates it.
+
+Primary stack:
+
+Supabase
+Figma Make
+11 — SUPABASE HOSTED MODEL
+
+Supabase responsibilities:
+
+tenant accounts
+organizations
+contract namespaces
+registry metadata
+version tracking
+access control
+
+Core data objects:
+
+organizations
+contracts
+contract_versions
+contract_packets
+effective_policy_sets
+release_receipts
+
+Supabase does not generate packets.
+
+It stores:
+
+packet references
+receipt hashes
+metadata
+12 — FIGMA MAKE PRODUCT SURFACE
+
+Figma Make provides:
+
+contract editing UI
+version comparison UI
+release workflow UI
+registry browser
+policy overlay configuration
+
+UI operations must:
+
+call deterministic scripts
+store resulting receipts
+never mutate artifacts
+13 — HOSTED WORKFLOW
+
+Example hosted release flow:
+
+user edits contract
+↓
+select policy overlay
+↓
+trigger release
+↓
+backend runs deterministic packet generator
+↓
+verify packet
+↓
+store packet reference + receipt hash
+↓
+publish version
+
+The artifact itself remains canonical.
+
+14 — ARCHITECTURAL POSITION IN ECOSYSTEM
+
+Contract Registry integrates with:
+
+BridgeKit
+NeverLost identity
+Covenant Gate policy engine
+NFL witness ledger
+RunLedger execution truth layer
+
+Relationship:
+
+Contract Registry = artifact registry
+Covenant Gate = policy decision engine
+NFL = immutable witness
+RunLedger = execution truth log
+15 — FUTURE TIERS
+Tier-1
+
+Hosted registry
+
+Supabase
+multi-tenant contracts
+contract search
+version control
+policy overlay management
+Tier-2
+
+Ecosystem governance
+
+Covenant Gate enforcement
+NeverLost identity signing
+NFL witness duplication
+contract lifecycle governance
+16 — CURRENT PROJECT STATUS
+
+Tier-0 instrument:
+
+GREEN
+
+Overlay effective set binding:
+
+GREEN
+
+Golden vectors:
+
+GREEN
+
+Hosted layer:
+
+NOT STARTED
+17 — IMMEDIATE NEXT TASKS
+
+1️⃣ freeze Tier-0 state
+
+git tag contract-registry-tier0-green
+
+2️⃣ create deterministic FULL_GREEN runner
+
+3️⃣ write Tier-0 README
+
+4️⃣ design Supabase schema
+
+5️⃣ design Figma Make UI
+
+18 — CONCLUSION
+
+Contract Registry has achieved:
+
+deterministic artifact release
+deterministic verification
+effective policy binding
+reproducible Tier-0 execution
+
+This qualifies it as a true standalone Tier-0 instrument.
+
+Next work transitions from instrument correctness to hosted product surface.

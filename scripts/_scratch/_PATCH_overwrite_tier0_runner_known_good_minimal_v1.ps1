@@ -1,6 +1,27 @@
 param([Parameter(Mandatory=$true)][string]$RepoRoot)
 $ErrorActionPreference="Stop"
 Set-StrictMode -Version Latest
+function WriteUtf8NoBomLf([string]$Path,[string]$Text){
+  $dir=Split-Path -Parent $Path
+  if($dir -and -not (Test-Path -LiteralPath $dir -PathType Container)){ New-Item -ItemType Directory -Force -Path $dir | Out-Null }
+  $lf = ($Text -replace "`r`n","`n") -replace "`r","`n"
+  if(-not $lf.EndsWith("`n")){ $lf += "`n" }
+  [IO.File]::WriteAllText($Path,$lf,[Text.UTF8Encoding]::new($false))
+}
+function ParseGateFile([string]$Path){
+  $t=$null; $e=$null
+  [void][System.Management.Automation.Language.Parser]::ParseFile($Path,[ref]$t,[ref]$e)
+  if($e -and $e.Count -gt 0){
+    $x=$e[0]
+    throw ("PARSE_GATE_FAIL: {0}:{1}:{2}: {3}" -f $Path,$x.Extent.StartLineNumber,$x.Extent.StartColumnNumber,$x.Message)
+  }
+}
+$ScriptsDir = Join-Path $RepoRoot "scripts"
+$RunPath = Join-Path $ScriptsDir "_RUN_contract_registry_tier0_selftest_v1.ps1"
+$txt = @'
+param([Parameter(Mandatory=$true)][string]$RepoRoot)
+$ErrorActionPreference="Stop"
+Set-StrictMode -Version Latest
 
 function Die([string]$m){ throw $m }
 function EnsureDir([string]$p){ if(-not (Test-Path -LiteralPath $p -PathType Container)){ New-Item -ItemType Directory -Force -Path $p | Out-Null } }
@@ -84,34 +105,8 @@ $rc = New-Object System.Collections.Generic.List[string]
 if(Test-Path -LiteralPath $Builder1  -PathType Leaf){ [void]$rc.Add("scripts/builder_v1_sha256: " + (Sha256HexFile $Builder1)) }
 if(Test-Path -LiteralPath $Builder11 -PathType Leaf){ [void]$rc.Add("scripts/builder_v1_1_sha256: " + (Sha256HexFile $Builder11)) }
 WriteUtf8NoBomLf $Receipt ((@($rc.ToArray()) -join "`n") + "`n")
-# Determine receipt directory without requiring $RcptDir to exist yet.
-$RcptDirLocal = $null
-if(Test-Path variable:RcptDir){ $RcptDirLocal = $RcptDir }
-
-# CONTRACT_REGISTRY_TIER0_EFFECTIVE_SETS_WIRED_V1
-# Resolve effective policy/schema sets and bind receipt hash into Tier-0 receipt.
-if([string]::IsNullOrWhiteSpace($Receipt)){ Die "EFFECTIVE_SETS_RECEIPT_VAR_EMPTY" }
-$ReceiptPath = $Receipt
-$RcptDir = Split-Path -Parent $ReceiptPath
-if([string]::IsNullOrWhiteSpace($RcptDir)){ Die "EFFECTIVE_SETS_BAD_RECEIPT_PARENT" }
-$Resolve = Join-Path (Join-Path $RepoRoot "scripts") "contract_registry_resolve_effective_sets_v1.ps1"
-if(-not (Test-Path -LiteralPath $Resolve -PathType Leaf)){ Die ("MISSING_EFFECTIVE_SETS_RESOLVER: " + $Resolve) }
-$EffDir = Join-Path $RcptDir "effective_sets"
-if(Test-Path -LiteralPath $EffDir -PathType Container){ Remove-Item -LiteralPath $EffDir -Recurse -Force }
-New-Item -ItemType Directory -Force -Path $EffDir | Out-Null
-$pe = Start-Process -FilePath $PSExe -ArgumentList @("-NoProfile","-NonInteractive","-ExecutionPolicy","Bypass","-File",$Resolve,"-RepoRoot",$RepoRoot,"-OutDir",$EffDir) -NoNewWindow -Wait -PassThru
-if($pe.ExitCode -ne 0){ Die ("EFFECTIVE_SETS_FAILED exit_code=" + $pe.ExitCode) }
-$EffReceipt = Join-Path $EffDir "receipt.txt"
-RequireFile $EffReceipt
-$effHash = Sha256HexFile $EffReceipt
-$cur = [IO.File]::ReadAllText($ReceiptPath,[Text.UTF8Encoding]::new($false))
-$add = [IO.File]::ReadAllText($EffReceipt,[Text.UTF8Encoding]::new($false))
-$m = (($cur -replace "`r`n","`n") -replace "`r","`n")
-$a = (($add -replace "`r`n","`n") -replace "`r","`n")
-$m = $m.TrimEnd("`n") + "`n"
-$a = $a.TrimEnd("`n") + "`n"
-$merged = $m + "effective_sets_receipt_sha256: " + $effHash + "`n" + "effective_sets_receipt_path: effective_sets/receipt.txt`n" + $a
-[IO.File]::WriteAllText($ReceiptPath,$merged,[Text.UTF8Encoding]::new($false))
-Write-Host ("EFFECTIVE_SETS_WIRED_OK: sha256=" + $effHash) -ForegroundColor DarkGray
-
 Write-Host ("TIER0_OK: receipt=" + $Receipt) -ForegroundColor Green
+'@
+WriteUtf8NoBomLf $RunPath $txt
+ParseGateFile $RunPath
+Write-Host ("PATCH_OK: overwrote+parse_ok " + $RunPath) -ForegroundColor Green

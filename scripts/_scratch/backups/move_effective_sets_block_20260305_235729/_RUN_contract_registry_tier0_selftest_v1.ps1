@@ -84,19 +84,21 @@ $rc = New-Object System.Collections.Generic.List[string]
 if(Test-Path -LiteralPath $Builder1  -PathType Leaf){ [void]$rc.Add("scripts/builder_v1_sha256: " + (Sha256HexFile $Builder1)) }
 if(Test-Path -LiteralPath $Builder11 -PathType Leaf){ [void]$rc.Add("scripts/builder_v1_1_sha256: " + (Sha256HexFile $Builder11)) }
 WriteUtf8NoBomLf $Receipt ((@($rc.ToArray()) -join "`n") + "`n")
+# CONTRACT_REGISTRY_TIER0_EFFECTIVE_SETS_WIRED_V1
+# Resolve effective policy/schema sets and bind receipt hash into Tier-0 receipt.
+$Resolve = Join-Path (Join-Path $RepoRoot "scripts") "contract_registry_resolve_effective_sets_v1.ps1"
+if(-not (Test-Path -LiteralPath $Resolve -PathType Leaf)){ Die ("MISSING_EFFECTIVE_SETS_RESOLVER: " + $Resolve) }
+
 # Determine receipt directory without requiring $RcptDir to exist yet.
 $RcptDirLocal = $null
 if(Test-Path variable:RcptDir){ $RcptDirLocal = $RcptDir }
+elseif(Test-Path variable:ReceiptPath){ $RcptDirLocal = Split-Path -Parent $ReceiptPath }
+if([string]::IsNullOrWhiteSpace($RcptDirLocal)){ Die "EFFECTIVE_SETS_NO_RCPTDIR_OR_RECEIPTPATH" }
+$ReceiptPathLocal = $null
+if(Test-Path variable:ReceiptPath){ $ReceiptPathLocal = $ReceiptPath } else { $ReceiptPathLocal = Join-Path $RcptDirLocal "receipt.txt" }
+RequireFile $ReceiptPathLocal
 
-# CONTRACT_REGISTRY_TIER0_EFFECTIVE_SETS_WIRED_V1
-# Resolve effective policy/schema sets and bind receipt hash into Tier-0 receipt.
-if([string]::IsNullOrWhiteSpace($Receipt)){ Die "EFFECTIVE_SETS_RECEIPT_VAR_EMPTY" }
-$ReceiptPath = $Receipt
-$RcptDir = Split-Path -Parent $ReceiptPath
-if([string]::IsNullOrWhiteSpace($RcptDir)){ Die "EFFECTIVE_SETS_BAD_RECEIPT_PARENT" }
-$Resolve = Join-Path (Join-Path $RepoRoot "scripts") "contract_registry_resolve_effective_sets_v1.ps1"
-if(-not (Test-Path -LiteralPath $Resolve -PathType Leaf)){ Die ("MISSING_EFFECTIVE_SETS_RESOLVER: " + $Resolve) }
-$EffDir = Join-Path $RcptDir "effective_sets"
+$EffDir = Join-Path $RcptDirLocal "effective_sets"
 if(Test-Path -LiteralPath $EffDir -PathType Container){ Remove-Item -LiteralPath $EffDir -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $EffDir | Out-Null
 $pe = Start-Process -FilePath $PSExe -ArgumentList @("-NoProfile","-NonInteractive","-ExecutionPolicy","Bypass","-File",$Resolve,"-RepoRoot",$RepoRoot,"-OutDir",$EffDir) -NoNewWindow -Wait -PassThru
@@ -104,14 +106,14 @@ if($pe.ExitCode -ne 0){ Die ("EFFECTIVE_SETS_FAILED exit_code=" + $pe.ExitCode) 
 $EffReceipt = Join-Path $EffDir "receipt.txt"
 RequireFile $EffReceipt
 $effHash = Sha256HexFile $EffReceipt
-$cur = [IO.File]::ReadAllText($ReceiptPath,[Text.UTF8Encoding]::new($false))
+$cur = [IO.File]::ReadAllText($ReceiptPathLocal,[Text.UTF8Encoding]::new($false))
 $add = [IO.File]::ReadAllText($EffReceipt,[Text.UTF8Encoding]::new($false))
 $m = (($cur -replace "`r`n","`n") -replace "`r","`n")
 $a = (($add -replace "`r`n","`n") -replace "`r","`n")
 $m = $m.TrimEnd("`n") + "`n"
 $a = $a.TrimEnd("`n") + "`n"
 $merged = $m + "effective_sets_receipt_sha256: " + $effHash + "`n" + "effective_sets_receipt_path: effective_sets/receipt.txt`n" + $a
-[IO.File]::WriteAllText($ReceiptPath,$merged,[Text.UTF8Encoding]::new($false))
+[IO.File]::WriteAllText($ReceiptPathLocal,$merged,[Text.UTF8Encoding]::new($false))
 Write-Host ("EFFECTIVE_SETS_WIRED_OK: sha256=" + $effHash) -ForegroundColor DarkGray
 
 Write-Host ("TIER0_OK: receipt=" + $Receipt) -ForegroundColor Green

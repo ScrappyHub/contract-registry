@@ -87,11 +87,36 @@ WriteUtf8NoBomLf $Receipt ((@($rc.ToArray()) -join "`n") + "`n")
 # Determine receipt directory without requiring $RcptDir to exist yet.
 $RcptDirLocal = $null
 if(Test-Path variable:RcptDir){ $RcptDirLocal = $RcptDir }
+elseif(Test-Path variable:ReceiptPath){ $RcptDirLocal = Split-Path -Parent $ReceiptPath }
+$ReceiptPathLocal = $null
+if(Test-Path variable:ReceiptPath){ $ReceiptPathLocal = $ReceiptPath } else { $ReceiptPathLocal = Join-Path $RcptDirLocal "receipt.txt" }
+RequireFile $ReceiptPathLocal
+
+$EffDir = Join-Path $RcptDirLocal "effective_sets"
+if(Test-Path -LiteralPath $EffDir -PathType Container){ Remove-Item -LiteralPath $EffDir -Recurse -Force }
+New-Item -ItemType Directory -Force -Path $EffDir | Out-Null
+$pe = Start-Process -FilePath $PSExe -ArgumentList @("-NoProfile","-NonInteractive","-ExecutionPolicy","Bypass","-File",$Resolve,"-RepoRoot",$RepoRoot,"-OutDir",$EffDir) -NoNewWindow -Wait -PassThru
+if($pe.ExitCode -ne 0){ Die ("EFFECTIVE_SETS_FAILED exit_code=" + $pe.ExitCode) }
+$EffReceipt = Join-Path $EffDir "receipt.txt"
+RequireFile $EffReceipt
+$effHash = Sha256HexFile $EffReceipt
+$cur = [IO.File]::ReadAllText($ReceiptPathLocal,[Text.UTF8Encoding]::new($false))
+$add = [IO.File]::ReadAllText($EffReceipt,[Text.UTF8Encoding]::new($false))
+$m = (($cur -replace "`r`n","`n") -replace "`r","`n")
+$a = (($add -replace "`r`n","`n") -replace "`r","`n")
+$m = $m.TrimEnd("`n") + "`n"
+$a = $a.TrimEnd("`n") + "`n"
+$merged = $m + "effective_sets_receipt_sha256: " + $effHash + "`n" + "effective_sets_receipt_path: effective_sets/receipt.txt`n" + $a
+[IO.File]::WriteAllText($ReceiptPathLocal,$merged,[Text.UTF8Encoding]::new($false))
+Write-Host ("EFFECTIVE_SETS_WIRED_OK: sha256=" + $effHash) -ForegroundColor DarkGray
 
 # CONTRACT_REGISTRY_TIER0_EFFECTIVE_SETS_WIRED_V1
 # Resolve effective policy/schema sets and bind receipt hash into Tier-0 receipt.
-if([string]::IsNullOrWhiteSpace($Receipt)){ Die "EFFECTIVE_SETS_RECEIPT_VAR_EMPTY" }
-$ReceiptPath = $Receipt
+$cand = @("ReceiptPath","Receipt","ReceiptFile","ReceiptTxt","OutReceipt","OutReceiptPath","Tier0Receipt","Tier0ReceiptPath")
+$rp = $null
+foreach($n in @(@($cand))){ $v = Get-Variable -Name $n -ErrorAction SilentlyContinue; if($v -and $v.Value){ $rp = [string]$v.Value; break } }
+if([string]::IsNullOrWhiteSpace($rp)){ Die "EFFECTIVE_SETS_NO_RECEIPT_VAR_FOUND" }
+$ReceiptPath = $rp
 $RcptDir = Split-Path -Parent $ReceiptPath
 if([string]::IsNullOrWhiteSpace($RcptDir)){ Die "EFFECTIVE_SETS_BAD_RECEIPT_PARENT" }
 $Resolve = Join-Path (Join-Path $RepoRoot "scripts") "contract_registry_resolve_effective_sets_v1.ps1"
