@@ -1,0 +1,6 @@
+{
+  "org_id": "11111111-1111-1111-1111-111111111111",
+  "api_base": "https://your-domain.com",
+  "auth_token": "",
+  "default_workspace": "./workspace"
+}

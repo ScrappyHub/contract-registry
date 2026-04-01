@@ -1,0 +1,509 @@
+# CONTRACT REGISTRY — WORKBENCH LAYER V1
+
+## STATUS: LOCKED DRAFT
+
+## PURPOSE: Downloadable execution layer for Contract Registry hosted control plane
+
+---
+
+# 1) INTENT
+
+Contract Registry uses a hybrid architecture:
+
+* **Hosted Control Plane**
+* **Downloadable Workbench Engine**
+
+The hosted control plane manages:
+
+* authentication
+* organizations
+* memberships
+* billing
+* entitlements
+* contracts
+* versions
+* releases
+* overlays
+* workbench access
+
+The downloadable workbench manages:
+
+* local execution
+* packet/release generation
+* verification
+* proof production
+* offline-capable governed operations
+
+This document locks the Workbench Layer contract.
+
+---
+
+# 2) POSITIONING
+
+## Canonical statement
+
+Contract Registry is **not** a pure SaaS and is **not** a pure local tool.
+
+It is:
+
+> **a hosted governance control plane with a downloadable execution workbench**
+
+## Why this is required
+
+A pure hosted model would break:
+
+* offline capability
+* local verification trust
+* deterministic execution posture
+* proof-producing operator workflows
+
+A pure local model would break:
+
+* billing
+* entitlement gating
+* organization management
+* hosted audit/control plane
+* managed distribution
+
+Therefore the Workbench Layer is mandatory.
+
+---
+
+# 3) PRODUCT SPLIT
+
+## A. Hosted Control Plane
+
+Primary user surface.
+
+### Responsibilities
+
+* sign in / session management
+* org selection
+* contract authoring and governance
+* version lifecycle
+* release orchestration
+* overlay management
+* billing and entitlements
+* member administration
+* support readonly administration
+* workbench download portal
+
+### Primary routes
+
+* `/app/dashboard`
+* `/app/contracts`
+* `/app/releases`
+* `/app/overlays`
+* `/app/billing`
+* `/app/members`
+* `/app/support-access`
+* `/app/workbench`
+* `/app/settings`
+
+## B. Downloadable Workbench
+
+Secondary operator surface.
+
+### Responsibilities
+
+* local release build execution
+* deterministic packet creation
+* local verification
+* effective set resolution
+* receipt generation
+* audit/proof export
+* offline operation where possible
+
+---
+
+# 4) WORKBENCH GOALS
+
+The first Workbench release must:
+
+1. Be downloadable from the hosted portal
+2. Run locally on the operator machine
+3. Consume governed inputs from Contract Registry context
+4. Produce deterministic outputs
+5. Produce verifiable receipts
+6. Support at least one full release-oriented execution lane
+7. Preserve your packet/receipt discipline
+
+---
+
+# 5) CANONICAL WORKBENCH MVP
+
+## MVP identity
+
+**Contract Registry Workbench v0.1.0**
+
+## MVP posture
+
+* Windows-first
+* CLI-first
+* optional thin UI wrapper later
+* minimal and reliable
+* deterministic before beautiful
+
+## MVP user story
+
+A signed-in entitled customer downloads the Workbench from the hosted portal, runs it locally, performs a governed release/verification workflow, and retains local proof artifacts.
+
+---
+
+# 6) RECOMMENDED DELIVERY MODEL
+
+## Phase 1
+
+### CLI-first workbench
+
+Ship the engine as:
+
+* PowerShell-driven
+* deterministic local runner
+* optional packaged zip
+* simple invocation model
+
+### Why
+
+This is the fastest path to a real locked product because:
+
+* your ecosystem already speaks this language
+* determinism is easier to preserve
+* proof generation is easier to audit
+* you avoid UI-first complexity
+
+## Phase 2
+
+### Thin desktop wrapper
+
+Later add:
+
+* simple launcher window
+* forms for common actions
+* status view
+* local proof browser
+
+But this is **after** the CLI engine is real and stable.
+
+---
+
+# 7) WORKBENCH SURFACE AREA
+
+## Required commands for MVP
+
+The Workbench should expose a small, explicit command surface.
+
+### Suggested command groups
+
+* `env`
+* `auth-context`
+* `release`
+* `verify`
+* `effective-sets`
+* `receipts`
+* `selftest`
+
+## Suggested MVP commands
+
+### `workbench env check`
+
+Purpose:
+
+* verify local environment readiness
+* paths
+* permissions
+* required files/tooling
+
+### `workbench auth-context show`
+
+Purpose:
+
+* display local org/user/workbench entitlement context if available
+* show current configuration bindings
+
+### `workbench effective-sets resolve`
+
+Purpose:
+
+* resolve policy/schema effective sets locally
+* emit effective sets receipt
+
+### `workbench release build`
+
+Purpose:
+
+* execute local release build pipeline
+* produce packet root / receipts / hashes
+
+### `workbench verify release`
+
+Purpose:
+
+* verify local release artifacts non-mutatingly
+
+### `workbench receipts open`
+
+Purpose:
+
+* open or print most recent receipt/output location
+
+### `workbench selftest`
+
+Purpose:
+
+* deterministic local sanity proof for shipping confidence
+
+---
+
+# 8) WORKBENCH DIRECTORY CONTRACT
+
+## Recommended local root
+
+```text
+%LOCALAPPDATA%\ContractRegistryWorkbench\
+```
+
+## Suggested structure
+
+```text
+ContractRegistryWorkbench/
+  bin/
+  config/
+  inputs/
+  outputs/
+  receipts/
+  logs/
+  cache/
+  selftest/
+```
+
+## Meanings
+
+### `bin/`
+
+* shipped executables/scripts
+* versioned runtime pieces
+
+### `config/`
+
+* local workbench configuration
+* org binding metadata if needed
+* non-secret local settings
+
+### `inputs/`
+
+* operator-provided inputs for release/verify actions
+
+### `outputs/`
+
+* generated packet/release outputs
+
+### `receipts/`
+
+* local deterministic receipts
+
+### `logs/`
+
+* operational logs
+
+### `cache/`
+
+* temporary derived data
+
+### `selftest/`
+
+* selftest vectors/results
+
+---
+
+# 9) WORKBENCH ARTIFACT CONTRACT
+
+For MVP, the downloadable artifact should be:
+
+* zipped release bundle
+* platform-scoped
+* architecture-scoped
+* signed status reflected in portal metadata
+* hash reflected in portal metadata
+
+## Current seeded example
+
+* release key: `contract-registry-workbench-v0.1.0`
+* title: `Contract Registry Workbench`
+* version: `0.1.0`
+* platform: `windows`
+* architecture: `x64`
+* file name: `contract-registry-workbench-windows-x64-v0.1.0.zip`
+
+---
+
+# 10) HOSTED ↔ WORKBENCH HANDSHAKE
+
+## Hosted side responsibilities
+
+The hosted control plane must:
+
+* authenticate user
+* determine org membership
+* determine entitlement
+* expose downloadable artifacts only when allowed
+* record download audit events
+
+## Workbench side responsibilities
+
+The workbench must:
+
+* operate locally after download
+* not depend on constant online control plane availability for core local work
+* preserve local proofs
+* optionally upload or reference outputs later through hosted surfaces
+
+## Canonical rule
+
+The hosted control plane decides **who may obtain the Workbench**.
+
+The Workbench decides **how local governed execution runs**.
+
+---
+
+# 11) BILLING / ENTITLEMENT LAW
+
+The Workbench is a gated deliverable.
+
+## Proven law
+
+* `trial` blocks workbench access
+* `starter` enables workbench access
+* higher plans can also enable workbench access
+
+## UI implication
+
+The website is the **download portal and entitlement gate**.
+
+## Product implication
+
+The Workbench is not a public anonymous binary.
+
+---
+
+# 12) WORKBENCH MVP UX
+
+## Website UX
+
+The website should be the clean/simple portal.
+
+### Website responsibilities
+
+* explain what the workbench is
+* show availability by plan
+* list released artifacts
+* show signature/hash metadata
+* allow entitled users to download
+* show download history/audit
+
+## Local UX
+
+The workbench itself should be minimal.
+
+### CLI-first UX goals
+
+* obvious commands
+* obvious output directory
+* obvious receipt directory
+* deterministic success/failure tokens
+* no hidden automation
+
+---
+
+# 13) FIRST LOCKED MVP WORKFLOW
+
+## Workflow: governed release execution
+
+1. User signs into hosted control plane
+2. User opens Workbench portal
+3. User downloads entitled Workbench release
+4. User runs Workbench locally
+5. User performs environment check
+6. User resolves effective sets
+7. User builds release locally
+8. User verifies outputs locally
+9. User reviews receipts and outputs
+10. User optionally returns to hosted portal for auditing / next steps
+
+This is the first locked pipeline.
+
+---
+
+# 14) MVP DEFINITION OF DONE
+
+The Workbench MVP is considered real when:
+
+* the portal delivers the artifact only to entitled users
+* the artifact runs locally
+* `env check` works
+* `effective-sets resolve` works
+* `release build` works
+* `verify release` works
+* receipts are emitted deterministically
+* output directories are predictable
+* failures are explicit and actionable
+
+---
+
+# 15) WHAT THE WEBSITE SHOULD BE
+
+The website should be:
+
+* a control plane
+* a billing/entitlement surface
+* a governance dashboard
+* a release visibility portal
+* a workbench download portal
+
+It should **not** try to replace local governed execution.
+
+---
+
+# 16) WHAT THE WORKBENCH SHOULD BE
+
+The Workbench should be:
+
+* a downloadable engine
+* deterministic
+* operator-friendly
+* local-first
+* proof-producing
+* Windows-first initially
+* CLI-first initially
+
+It should **not** begin as a giant complex desktop suite.
+
+---
+
+# 17) NEXT IMPLEMENTATION ORDER
+
+## Locked order
+
+1. Freeze this Workbench Layer contract
+2. Define the exact Workbench command contract
+3. Define the exact Workbench output/receipt contract
+4. Package the first local Workbench artifact
+5. Validate portal download + audit end to end
+6. Run local MVP workflow proof
+7. Only then consider thin UI wrapper
+
+---
+
+# 18) FINAL RULE
+
+Contract Registry must remain:
+
+> **Hosted governance control plane + downloadable governed execution Workbench**
+
+Not pure SaaS.
+Not pure local-only tool.
+Both layers are required.
+
+---
+
+END OF DOCUMENT
