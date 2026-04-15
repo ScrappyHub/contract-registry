@@ -1,0 +1,6 @@
+{
+  "schema": "contract_registry.schema_overlay_profile.v1",
+  "profile_key": "default.schema.overlay",
+  "description": "Workbench bootstrap schema overlay sample",
+  "patches": []
+}
