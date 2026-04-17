@@ -1,77 +1,56 @@
 import express from "express";
+import cors from "cors";
 import { spawn } from "child_process";
 
 const app = express();
+app.use(cors());
 app.use(express.json());
 
-const PORT = 5175;
+app.post("/run", (req, res) => {
+  const { repoRoot, workspace } = req.body ?? {};
 
-app.get("/api/health", (_req, res) => {
-  res.json({ ok: true, service: "workbench-ui-bridge" });
-});
+  if (!repoRoot || !workspace) {
+    return res.status(400).json({ error: "MISSING_INPUT" });
+  }
 
-app.post("/api/run-pipeline", (req, res) => {
-  const repoRoot = req.body?.repoRoot || "C:\\dev\\contract-registry";
-  const workspace = req.body?.workspace || "C:\\dev\\contract-registry\\workbench\\workspace";
   const scriptPath = `${repoRoot}\\workbench\\scripts\\_RUN_workbench_full_pipeline_v1.ps1`;
 
-  const child = spawn(
-    "powershell.exe",
-    [
-      "-NoProfile",
-      "-NonInteractive",
-      "-ExecutionPolicy",
-      "Bypass",
-      "-File",
-      scriptPath,
-      "-RepoRoot",
-      repoRoot,
-      "-Workspace",
-      workspace
-    ],
-    { windowsHide: true }
-  );
-
-  let stdout = "";
-  let stderr = "";
-  let responded = false;
-
-  child.stdout.on("data", (chunk) => {
-    stdout += chunk.toString();
+  const ps = spawn("powershell.exe", [
+    "-NoProfile",
+    "-NonInteractive",
+    "-ExecutionPolicy", "Bypass",
+    "-File", scriptPath,
+    "-RepoRoot", repoRoot,
+    "-Workspace", workspace
+  ], {
+    windowsHide: true
   });
 
-  child.stderr.on("data", (chunk) => {
-    stderr += chunk.toString();
+  res.writeHead(200, {
+    "Content-Type": "text/plain; charset=utf-8",
+    "Transfer-Encoding": "chunked",
+    "Cache-Control": "no-cache"
   });
 
-  child.on("error", (err) => {
-    if (responded) return;
-    responded = true;
-    res.status(500).json({
-      ok: false,
-      error: `PROCESS_START_FAILED: ${err.message}`,
-      stdout,
-      stderr
-    });
+  ps.stdout.on("data", (data) => {
+    res.write(data.toString());
   });
 
-  child.on("close", (code) => {
-    if (responded) return;
-    responded = true;
+  ps.stderr.on("data", (data) => {
+    res.write("ERR: " + data.toString());
+  });
 
-    const success =
-      code === 0 &&
-      stdout.includes("WORKBENCH_FULL_PIPELINE_GREEN");
+  ps.on("error", (err) => {
+    res.write("ERR: PROCESS_START_FAILED: " + err.message + "\n");
+    res.end();
+  });
 
-    res.status(success ? 200 : 500).json({
-      ok: success,
-      exitCode: code,
-      stdout,
-      stderr
-    });
+  ps.on("close", (code) => {
+    res.write("\nPROCESS_EXIT_CODE:" + String(code) + "\n");
+    res.end();
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`WORKBENCH_UI_BRIDGE_OK http://localhost:${PORT}`);
+app.listen(5175, () => {
+  console.log("WORKBENCH_UI_BRIDGE_OK http://localhost:5175");
 });

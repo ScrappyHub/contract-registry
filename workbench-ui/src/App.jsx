@@ -1,44 +1,25 @@
 import { useMemo, useState } from "react";
 
-const DEFAULT_REPO = "C:\\dev\\contract-registry";
-const DEFAULT_WORKSPACE = "C:\\dev\\contract-registry\\workbench\\workspace";
-
-function extractValue(label, text) {
-  const line = text
-    .split(/\r?\n/)
-    .find((x) => x.startsWith(label));
-  if (!line) return "";
-  return line.slice(label.length).trim();
-}
-
 export default function App() {
-  const [repoRoot, setRepoRoot] = useState(DEFAULT_REPO);
-  const [workspace, setWorkspace] = useState(DEFAULT_WORKSPACE);
+  const [repoRoot, setRepoRoot] = useState("C:\\dev\\contract-registry");
+  const [workspace, setWorkspace] = useState("C:\\dev\\contract-registry\\workbench\\workspace");
+  const [log, setLog] = useState("");
   const [running, setRunning] = useState(false);
-  const [stdout, setStdout] = useState("");
-  const [stderr, setStderr] = useState("");
-  const [exitCode, setExitCode] = useState(null);
-  const [error, setError] = useState("");
 
-  const summary = useMemo(() => {
-    return {
-      latestRelease: extractValue("LATEST_RELEASE:", stdout),
-      exportDir: extractValue("EVIDENCE_EXPORT_DIR:", stdout),
-      exportReceipt: extractValue("EVIDENCE_EXPORT_RECEIPT:", stdout),
-      exportReceiptHash: extractValue("EVIDENCE_EXPORT_RECEIPT_SHA256:", stdout),
-      isGreen: stdout.includes("WORKBENCH_FULL_PIPELINE_GREEN")
-    };
-  }, [stdout]);
+  const status = useMemo(() => {
+    if (running) return "RUNNING";
+    if (log.includes("WORKBENCH_FULL_PIPELINE_GREEN")) return "GREEN";
+    if (log.includes("PROCESS_EXIT_CODE:0")) return "DONE";
+    if (log.includes("ERR:") || /PROCESS_EXIT_CODE:(?!0)\d+/.test(log)) return "FAILED";
+    return "IDLE";
+  }, [running, log]);
 
   async function runPipeline() {
+    setLog("");
     setRunning(true);
-    setStdout("");
-    setStderr("");
-    setExitCode(null);
-    setError("");
 
     try {
-      const response = await fetch("http://localhost:5175/api/run-pipeline", {
+      const response = await fetch("http://localhost:5175/run", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -46,16 +27,23 @@ export default function App() {
         body: JSON.stringify({ repoRoot, workspace })
       });
 
-      const data = await response.json();
-      setStdout(data.stdout || "");
-      setStderr(data.stderr || "");
-      setExitCode(data.exitCode ?? null);
+      if (!response.body) {
+        setLog("ERR: RESPONSE_BODY_MISSING\n");
+        setRunning(false);
+        return;
+      }
 
-      if (!data.ok) {
-        setError("PIPELINE_FAILED");
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        setLog((prev) => prev + chunk);
       }
     } catch (err) {
-      setError(`REQUEST_FAILED: ${err.message}`);
+      setLog((prev) => prev + "ERR: REQUEST_FAILED: " + err.message + "\n");
     } finally {
       setRunning(false);
     }
@@ -85,7 +73,7 @@ export default function App() {
           </div>
 
           <button className="run-btn" onClick={runPipeline} disabled={running}>
-            {running ? "Running..." : "Run Full Pipeline"}
+            {running ? "Running..." : "Run Pipeline"}
           </button>
         </header>
 
@@ -95,20 +83,12 @@ export default function App() {
 
             <label className="field">
               <span>Repo Root</span>
-              <input
-                value={repoRoot}
-                onChange={(e) => setRepoRoot(e.target.value)}
-                disabled={running}
-              />
+              <input value={repoRoot} onChange={(e) => setRepoRoot(e.target.value)} disabled={running} />
             </label>
 
             <label className="field">
               <span>Workspace</span>
-              <input
-                value={workspace}
-                onChange={(e) => setWorkspace(e.target.value)}
-                disabled={running}
-              />
+              <input value={workspace} onChange={(e) => setWorkspace(e.target.value)} disabled={running} />
             </label>
           </div>
 
@@ -116,48 +96,17 @@ export default function App() {
             <h2>Status</h2>
             <div className="status-row">
               <span>State</span>
-              <strong className={summary.isGreen ? "ok" : running ? "warn" : "muted"}>
-                {summary.isGreen ? "GREEN" : running ? "RUNNING" : "IDLE"}
+              <strong className={status === "GREEN" ? "ok" : status === "RUNNING" ? "warn" : status === "FAILED" ? "bad" : "muted"}>
+                {status}
               </strong>
             </div>
-            <div className="status-row">
-              <span>Exit Code</span>
-              <strong>{exitCode ?? "-"}</strong>
-            </div>
-            <div className="status-row">
-              <span>Error</span>
-              <strong>{error || "-"}</strong>
-            </div>
           </div>
         </section>
 
-        <section className="panel grid-two">
+        <section className="panel">
           <div className="card">
-            <h2>Latest Release</h2>
-            <div className="mono-block">{summary.latestRelease || "-"}</div>
-
-            <h2>Export Directory</h2>
-            <div className="mono-block">{summary.exportDir || "-"}</div>
-          </div>
-
-          <div className="card">
-            <h2>Export Receipt</h2>
-            <div className="mono-block">{summary.exportReceipt || "-"}</div>
-
-            <h2>Export Receipt SHA256</h2>
-            <div className="mono-block">{summary.exportReceiptHash || "-"}</div>
-          </div>
-        </section>
-
-        <section className="panel grid-two">
-          <div className="card">
-            <h2>Stdout</h2>
-            <pre className="console">{stdout || "No output yet."}</pre>
-          </div>
-
-          <div className="card">
-            <h2>Stderr</h2>
-            <pre className="console">{stderr || "No stderr."}</pre>
+            <h2>Live Output</h2>
+            <pre className="console">{log || "No output yet."}</pre>
           </div>
         </section>
       </main>
