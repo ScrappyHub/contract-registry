@@ -28,3 +28,9 @@ Thumbs.db
 # --- dev graveyard (non-product) ---
 scripts/_graveyard/
 
+workbench-ui/node_modules/
+workbench-ui/dist/
+workbench-ui/.vite/
+
+*.log
+npm-debug.log*
