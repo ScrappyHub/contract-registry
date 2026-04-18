@@ -47,6 +47,7 @@ export default function App() {
 
       setImportToken(data.token || "WORKBENCH_IMPORT_OK");
       setBundleSummary(data.summary || null);
+      setLog((prev) => prev + "WORKBENCH_IMPORT_OK\n");
     } catch (err) {
       setImportError("IMPORT_REQUEST_FAILED: " + err.message);
     } finally {

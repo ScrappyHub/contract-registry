@@ -29,12 +29,27 @@ function clearDir(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
 }
 
+function normalizeExtractedRoot(inputRoot) {
+  const entries = fs.readdirSync(inputRoot, { withFileTypes: true });
+  const dirs = entries.filter(x => x.isDirectory());
+  const files = entries.filter(x => x.isFile());
+
+  if (files.length === 0 && dirs.length === 1) {
+    const nested = path.join(inputRoot, dirs[0].name);
+    const nestedEntries = fs.readdirSync(nested);
+    for (const name of nestedEntries) {
+      fs.renameSync(path.join(nested, name), path.join(inputRoot, name));
+    }
+    fs.rmSync(nested, { recursive: true, force: true });
+  }
+}
+
 function validateImportedBundle(bundleRoot) {
   const manifestPath = path.join(bundleRoot, "manifest.json");
   const contractPath = path.join(bundleRoot, "contract.json");
-  const versionPath = path.join(bundleRoot, "version.json");
-  const policyDir = path.join(bundleRoot, "overlays", "policy");
-  const schemaDir = path.join(bundleRoot, "overlays", "schema");
+  const versionPath  = path.join(bundleRoot, "version.json");
+  const policyDir    = path.join(bundleRoot, "overlays", "policy");
+  const schemaDir    = path.join(bundleRoot, "overlays", "schema");
 
   const required = [manifestPath, contractPath, versionPath];
   for (const p of required) {
@@ -50,7 +65,7 @@ function validateImportedBundle(bundleRoot) {
   try {
     manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
     contract = JSON.parse(fs.readFileSync(contractPath, "utf8"));
-    version = JSON.parse(fs.readFileSync(versionPath, "utf8"));
+    version  = JSON.parse(fs.readFileSync(versionPath, "utf8"));
   } catch (err) {
     throw new Error("IMPORT_FAIL_INVALID_JSON: " + err.message);
   }
@@ -97,10 +112,12 @@ app.post("/api/import-bundle", upload.single("bundle"), (req, res) => {
     }
 
     const inputRoot = path.join(workspace, "input", "contract");
+    ensureDir(path.join(workspace, "input"));
     clearDir(inputRoot);
 
     const zip = new AdmZip(req.file.buffer);
     zip.extractAllTo(inputRoot, true);
+    normalizeExtractedRoot(inputRoot);
 
     const summary = validateImportedBundle(inputRoot);
 
@@ -116,68 +133,6 @@ app.post("/api/import-bundle", upload.single("bundle"), (req, res) => {
       error: err.message || "IMPORT_FAIL_UNKNOWN"
     });
   }
-});
-
-app.post("/api/run-pipeline", (req, res) => {
-  const repoRoot = req.body?.repoRoot || "C:\\dev\\contract-registry";
-  const workspace = req.body?.workspace || "C:\\dev\\contract-registry\\workbench\\workspace";
-  const scriptPath = `${repoRoot}\\workbench\\scripts\\_RUN_workbench_full_pipeline_v1.ps1`;
-
-  const child = spawn(
-    "powershell.exe",
-    [
-      "-NoProfile",
-      "-NonInteractive",
-      "-ExecutionPolicy",
-      "Bypass",
-      "-File",
-      scriptPath,
-      "-RepoRoot",
-      repoRoot,
-      "-Workspace",
-      workspace
-    ],
-    { windowsHide: true }
-  );
-
-  let stdout = "";
-  let stderr = "";
-  let responded = false;
-
-  child.stdout.on("data", (chunk) => {
-    stdout += chunk.toString();
-  });
-
-  child.stderr.on("data", (chunk) => {
-    stderr += chunk.toString();
-  });
-
-  child.on("error", (err) => {
-    if (responded) return;
-    responded = true;
-    res.status(500).json({
-      ok: false,
-      error: `PROCESS_START_FAILED: ${err.message}`,
-      stdout,
-      stderr
-    });
-  });
-
-  child.on("close", (code) => {
-    if (responded) return;
-    responded = true;
-
-    const success =
-      code === 0 &&
-      stdout.includes("WORKBENCH_FULL_PIPELINE_GREEN");
-
-    res.status(success ? 200 : 500).json({
-      ok: success,
-      exitCode: code,
-      stdout,
-      stderr
-    });
-  });
 });
 
 app.post("/run", (req, res) => {
