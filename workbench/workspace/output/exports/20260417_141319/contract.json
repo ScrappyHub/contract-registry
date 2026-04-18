@@ -1,0 +1,6 @@
+{
+  "contract_key": "example.contract.v1",
+  "title": "Example Contract",
+  "description": "Bootstrap validation contract",
+  "status": "draft"
+}

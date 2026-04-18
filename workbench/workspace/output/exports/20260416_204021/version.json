@@ -1,0 +1,8 @@
+{
+  "version_no": 1,
+  "version_label": "v1",
+  "status": "draft",
+  "source_json_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "source_json_storage_path": "contracts/example.contract.v1/source.json",
+  "changelog": "Bootstrap initial version"
+}

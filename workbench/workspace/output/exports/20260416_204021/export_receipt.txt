@@ -1,0 +1,10 @@
+schema: contract_registry.workbench.export_receipt.v1
+utc: 2026-04-17T00:40:22.5967317Z
+export_id: 20260416_204021
+source_release_dir: C:\dev\contract-registry\workbench\workspace\output\releases\20260416_204021
+# files
+ffbbddb85896d761add50e867b54ee8a5b4febe0ac2bad8fa7af7e6a5a30bd87  contract.json
+a3bb657758bf9bba71c189967f178fee305d19a9d8305004578f16857120a2eb  manifest.json
+58c8d7a4fdff44c43e2f794e5a3aae3499ee1a6e9c789ae0d222f03845fb3a96  overlay_summary.txt
+f24bcae9eece29d7b7310d7eb774c12cf361fda23464fad84f307781fd5d501c  sha256sums.txt
+4d1be12e251a7f3e29e7a7150a3a25cc5b321b2b3c18405ec80191da4f000903  version.json

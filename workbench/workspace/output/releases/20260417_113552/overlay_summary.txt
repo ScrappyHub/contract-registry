@@ -1,0 +1,8 @@
+schema: contract_registry.workbench.overlay_resolution_summary.v1
+utc: 2026-04-15T23:36:26.7559041Z
+policy_overlay_count: 1
+schema_overlay_count: 1
+# policy_overlays
+09ee4f628fae1dac0b56592f5a009896adb6d2561ea23895a1a8664acabfaa2d  C:\dev\contract-registry\workbench\workspace\input\contract\overlays\policy\policy.overlay.json
+# schema_overlays
+bae047dc2878ed6aec5d7133ebe4820e3dba72e9eda7e86e5b0795c6b9af81f1  C:\dev\contract-registry\workbench\workspace\input\contract\overlays\schema\schema.overlay.json

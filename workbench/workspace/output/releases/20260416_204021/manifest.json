@@ -1,0 +1,11 @@
+{
+  "schema": "contract_registry.workbench.contract_bundle.v1",
+  "organization_id": "11111111-1111-1111-1111-111111111111",
+  "organization_slug": "contract-registry-test-org",
+  "contract_id": "33333333-3333-3333-3333-333333333333",
+  "contract_key": "example.contract.v1",
+  "contract_version_id": "44444444-4444-4444-4444-444444444444",
+  "version_label": "v1",
+  "policy_overlay_count": 0,
+  "schema_overlay_count": 0
+}
