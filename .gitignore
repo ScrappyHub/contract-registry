@@ -34,3 +34,7 @@ workbench-ui/.vite/
 
 *.log
 npm-debug.log*
+
+# --- workbench runtime/generated files ---
+workbench/workspace/output/
+workbench/workspace/*.zip
