@@ -1,719 +1,348 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-const STORAGE_KEY = "contract_registry_workbench_simple_v1";
-const tabs = ["Build", "Files", "Evidence", "Settings"];
+const API = "http://localhost:5185";
 
-function valueAfter(label, text) {
+function after(label, text) {
   const line = text.split(/\r?\n/).find((x) => x.startsWith(label));
   return line ? line.slice(label.length).trim() : "";
 }
 
-function stepStatus(log, step) {
-  if (log.includes(`STEP_OK: ${step}`)) return "done";
-  if (log.includes(`STEP_START: ${step}`)) return "running";
-  return "idle";
-}
-
-function loadSavedState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-}
-
-function explainError(error) {
-  if (!error) return "-";
-
-  if (error.includes("IMPORT_FAIL_REPO_BUNDLE_NOT_FOUND")) {
-    return "No Contract Registry bundle was found in that repo.";
-  }
-
-  if (error.includes("IMPORT_FAIL_SOURCE_EQUALS_DESTINATION")) {
-    return "That folder is already the active workspace input. Choose a separate source folder.";
-  }
-
-  if (error.includes("IMPORT_FAIL_SOURCE_NOT_FOUND")) {
-    return "That folder does not exist.";
-  }
-
-  if (error.includes("IMPORT_FAIL_MISSING_FILE")) {
-    return "The selected source is missing manifest.json, contract.json, or version.json.";
-  }
-
-  if (error.includes("IMPORT_FAIL_INVALID_JSON")) {
-    return "One of the bundle JSON files is invalid.";
-  }
-
-  if (error.includes("EPERM")) {
-    return "Windows blocked access to that folder. Close Explorer or apps using it, then try again.";
-  }
-
-  if (error.includes("OPEN_PATH_NOT_FOUND")) {
-    return "That folder does not exist yet.";
-  }
-
-  return error;
+function done(step, log) {
+  return log.includes("STEP_OK: " + step);
 }
 
 export default function App() {
-  const saved = useMemo(() => loadSavedState(), []);
+  const [repoRoot] = useState("C:\\dev\\contract-registry");
+  const [workspace] = useState("C:\\dev\\contract-registry\\workbench\\workspace");
 
-  const [activeTab, setActiveTab] = useState(saved.activeTab || "Build");
+  const [bridgeOk, setBridgeOk] = useState(false);
+  const [source, setSource] = useState(null);
+  const [sourcePath, setSourcePath] = useState("");
+  const [status, setStatus] = useState("Choose a source");
+  const [error, setError] = useState("");
+  const [log, setLog] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [upload, setUpload] = useState(null);
+  const [showTech, setShowTech] = useState(false);
 
-  const [repoRoot, setRepoRoot] = useState(saved.repoRoot || "C:\\dev\\contract-registry");
-  const [workspace, setWorkspace] = useState(saved.workspace || "C:\\dev\\contract-registry\\workbench\\workspace");
-  const [folderPath, setFolderPath] = useState(saved.folderPath || "C:\\dev\\contract-registry\\workbench\\workspace\\contract_bundle_unzipped");
-  const [repoImportPath, setRepoImportPath] = useState(saved.repoImportPath || "C:\\dev\\contract-registry");
+  const zipRef = useRef(null);
 
-  const [log, setLog] = useState(saved.log || "");
-  const [running, setRunning] = useState(false);
-  const [importing, setImporting] = useState(false);
-  const [importError, setImportError] = useState(saved.importError || "");
-  const [importToken, setImportToken] = useState(saved.importToken || "");
-  const [bundleSummary, setBundleSummary] = useState(saved.bundleSummary || null);
-  const [openStatus, setOpenStatus] = useState("");
-  const [uploadBundle, setUploadBundle] = useState(saved.uploadBundle || null);
-  const [uploadError, setUploadError] = useState("");
-
-  const fileRef = useRef(null);
+  const exportDir = after("EVIDENCE_EXPORT_DIR:", log);
+  const releaseDir = after("LATEST_RELEASE:", log);
+  const receipt = after("EVIDENCE_EXPORT_RECEIPT:", log);
+  const receiptHash = after("EVIDENCE_EXPORT_RECEIPT_SHA256:", log);
+  const ready = log.includes("WORKBENCH_FULL_PIPELINE_GREEN");
 
   useEffect(() => {
-    const snapshot = {
-      activeTab,
-      repoRoot,
-      workspace,
-      folderPath,
-      repoImportPath,
-      log,
-      importError,
-      importToken,
-      bundleSummary,
-      uploadBundle
-    };
+    checkBridge();
+  }, []);
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
-  }, [
-    activeTab,
-    repoRoot,
-    workspace,
-    folderPath,
-    repoImportPath,
-    log,
-    importError,
-    importToken,
-    bundleSummary,
-    uploadBundle
-  ]);
-
-  const pipelineState = useMemo(() => {
-    if (running) return "Running";
-    if (log.includes("WORKBENCH_FULL_PIPELINE_GREEN")) return "Package ready";
-    if (log.includes("PROCESS_EXIT_CODE:0")) return "Finished";
-    if (log.includes("ERR:") || /PROCESS_EXIT_CODE:(?!0)\d+/.test(log)) return "Failed";
-    return "Ready";
-  }, [running, log]);
-
-  const artifacts = useMemo(() => {
-    return {
-      release: valueAfter("LATEST_RELEASE:", log),
-      exportDir: valueAfter("EVIDENCE_EXPORT_DIR:", log),
-      receipt: valueAfter("EVIDENCE_EXPORT_RECEIPT:", log),
-      receiptHash: valueAfter("EVIDENCE_EXPORT_RECEIPT_SHA256:", log),
-      shaPath: valueAfter("SHA256SUMS:", log),
-      shaHash: valueAfter("SHA256SUMS_HASH:", log)
-    };
-  }, [log]);
-
-  const hasImportedBundle = importToken === "WORKBENCH_IMPORT_OK" && !!bundleSummary;
-  const hasPackage = log.includes("WORKBENCH_FULL_PIPELINE_GREEN") && !!artifacts.exportDir;
-
-  const steps = [
-    { key: "inspect", title: "Inspect" },
-    { key: "build", title: "Build" },
-    { key: "verify", title: "Verify" },
-    { key: "export", title: "Export" }
-  ];
-
-  const importedRoot = workspace + "\\input\\contract";
-  const outputRoot = workspace + "\\output";
-  const releasesRoot = outputRoot + "\\releases";
-  const exportsRoot = outputRoot + "\\exports";
-
-  function setImportOk(data, label) {
-    setImportToken(data.token || "WORKBENCH_IMPORT_OK");
-    setBundleSummary(data.summary || null);
-    setImportError("");
-    setUploadBundle(null);
-    setUploadError("");
-    setLog(label + "\nWORKBENCH_IMPORT_OK\n");
+  async function checkBridge() {
+    try {
+      const res = await fetch(API + "/api/health");
+      const data = await res.json();
+      setBridgeOk(!!data.ok);
+    } catch {
+      setBridgeOk(false);
+    }
   }
 
-  async function importBundle(file) {
+  function fail(message) {
+    setError(message || "Something went wrong.");
+    setStatus("Needs attention");
+  }
+
+  async function pickFolder() {
+    const res = await fetch(API + "/api/pick-folder", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "Choose Contract Registry bundle folder" })
+    });
+
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error);
+    return data.selectedPath;
+  }
+
+  async function importZip(file) {
     if (!file) return;
 
-    setImporting(true);
-    setImportError("");
-    setImportToken("");
-    setBundleSummary(null);
+    setBusy(true);
+    setError("");
+    setUpload(null);
+    setStatus("Importing zip...");
 
     try {
       const form = new FormData();
       form.append("bundle", file);
       form.append("workspace", workspace);
 
-      const response = await fetch("http://localhost:5175/api/import-bundle", {
+      const res = await fetch(API + "/api/import-zip", { method: "POST", body: form });
+      const data = await res.json();
+
+      if (!data.ok) throw new Error(data.error);
+
+      setSource(data.summary);
+      setSourcePath(file.name);
+      setLog("Source imported from zip.\n");
+      setStatus("Source ready");
+    } catch (e) {
+      fail(e.message);
+    } finally {
+      setBusy(false);
+      if (zipRef.current) zipRef.current.value = "";
+    }
+  }
+
+  async function importAnyRepo() {
+    setBusy(true);
+    setError("");
+    setUpload(null);
+    setStatus("Choosing repo...");
+
+    try {
+      const repoPath = await pickFolder();
+      setStatus("Scanning repo...");
+
+      const res = await fetch(API + "/api/import-any-repo", {
         method: "POST",
-        body: form
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ repoPath, workspace })
       });
 
-      const data = await response.json();
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
 
-      if (!data.ok) {
-        setImportError(data.error || "IMPORT_FAILED");
-        return;
-      }
-
-      setImportOk(data, "Imported zip bundle.");
-    } catch (err) {
-      setImportError("IMPORT_REQUEST_FAILED: " + err.message);
+      setSource(data.summary);
+      setSourcePath(repoPath);
+      setLog("Source generated from repo scan.\n");
+      setStatus("Source ready");
+    } catch (e) {
+      fail(e.message);
     } finally {
-      setImporting(false);
-      if (fileRef.current) fileRef.current.value = "";
+      setBusy(false);
     }
   }
 
   async function importFolder() {
-    setImporting(true);
-    setImportError("");
-    setImportToken("");
-    setBundleSummary(null);
+    setBusy(true);
+    setError("");
+    setUpload(null);
+    setStatus("Choosing folder...");
 
     try {
-      const response = await fetch("http://localhost:5175/api/import-folder", {
+      const folderPath = await pickFolder();
+      setStatus("Importing folder...");
+
+      const res = await fetch(API + "/api/import-folder", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ folderPath, workspace })
       });
 
-      const data = await response.json();
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
 
-      if (!data.ok) {
-        setImportError(data.error || "IMPORT_FOLDER_FAILED");
-        return;
-      }
-
-      setImportOk(data, "Imported folder bundle.");
-    } catch (err) {
-      setImportError("IMPORT_FOLDER_REQUEST_FAILED: " + err.message);
+      setSource(data.summary);
+      setSourcePath(folderPath);
+      setLog("Source imported from folder.\n");
+      setStatus("Source ready");
+    } catch (e) {
+      fail(e.message);
     } finally {
-      setImporting(false);
+      setBusy(false);
     }
   }
 
-  async function importRepo() {
-    setImporting(true);
-    setImportError("");
-    setImportToken("");
-    setBundleSummary(null);
+  async function buildPackage() {
+    setBusy(true);
+    setError("");
+    setUpload(null);
+    setStatus("Building package...");
+    setLog("");
 
     try {
-      const response = await fetch("http://localhost:5175/api/import-repo", {
+      const res = await fetch(API + "/api/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repoPath: repoImportPath, workspace })
+        body: JSON.stringify({ repoRoot, workspace })
       });
 
-      const data = await response.json();
+      if (!res.body) throw new Error("Build response stream missing.");
 
-      if (!data.ok) {
-        setImportError(data.error || "IMPORT_REPO_FAILED");
-        return;
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const item = await reader.read();
+        if (item.done) break;
+        setLog((prev) => prev + decoder.decode(item.value, { stream: true }));
       }
 
-      setImportOk(data, "Imported bundle from repo.");
-    } catch (err) {
-      setImportError("IMPORT_REPO_REQUEST_FAILED: " + err.message);
+      setStatus("Package ready");
+    } catch (e) {
+      fail(e.message);
     } finally {
-      setImporting(false);
+      setBusy(false);
     }
   }
 
-  async function pickFolder(kind) {
+  async function createUploadBundle() {
+    setBusy(true);
+    setError("");
+    setStatus("Creating upload bundle...");
+
     try {
-      const response = await fetch("http://localhost:5175/api/pick-folder", {
+      const res = await fetch(API + "/api/create-upload-bundle", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: kind === "repo" ? "Choose repository folder" : "Choose contract bundle folder" })
+        body: JSON.stringify({ exportDir })
       });
 
-      const data = await response.json();
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
 
-      if (!data.ok) {
-        setImportError(data.error || "PICK_FOLDER_FAILED");
-        return;
-      }
-
-      if (kind === "repo") {
-        setRepoImportPath(data.selectedPath);
-      } else {
-        setFolderPath(data.selectedPath);
-      }
-    } catch (err) {
-      setImportError("PICK_FOLDER_REQUEST_FAILED: " + err.message);
+      setUpload(data);
+      setStatus("Upload bundle ready");
+    } catch (e) {
+      fail(e.message);
+    } finally {
+      setBusy(false);
     }
   }
 
   async function openPath(targetPath) {
     if (!targetPath) return;
 
-    setOpenStatus("");
-
-    try {
-      const response = await fetch("http://localhost:5175/api/open-path", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetPath })
-      });
-
-      const data = await response.json();
-
-      if (!data.ok) {
-        setOpenStatus(data.error || "OPEN_PATH_FAIL");
-        return;
-      }
-
-      setOpenStatus("OPEN_PATH_OK");
-    } catch (err) {
-      setOpenStatus("OPEN_PATH_REQUEST_FAILED: " + err.message);
-    }
-  }
-
-  async function createUploadBundle() {
-    if (!artifacts.exportDir) return;
-
-    setUploadError("");
-    setUploadBundle(null);
-
-    try {
-      const response = await fetch("http://localhost:5175/api/export-upload-bundle", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ exportDir: artifacts.exportDir })
-      });
-
-      const data = await response.json();
-
-      if (!data.ok) {
-        setUploadError(data.error || "EXPORT_UPLOAD_BUNDLE_FAILED");
-        return;
-      }
-
-      setUploadBundle(data);
-    } catch (err) {
-      setUploadError("EXPORT_UPLOAD_REQUEST_FAILED: " + err.message);
-    }
-  }
-
-  async function runPipeline() {
-    setLog("");
-    setRunning(true);
-    setOpenStatus("");
-    setUploadBundle(null);
-    setUploadError("");
-
-    try {
-      const response = await fetch("http://localhost:5175/run", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repoRoot, workspace })
-      });
-
-      if (!response.body) {
-        setLog("ERR: RESPONSE_BODY_MISSING\n");
-        setRunning(false);
-        return;
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        setLog((prev) => prev + decoder.decode(value, { stream: true }));
-      }
-    } catch (err) {
-      setLog((prev) => prev + "ERR: REQUEST_FAILED: " + err.message + "\n");
-    } finally {
-      setRunning(false);
-    }
-  }
-
-  function WorkflowStep({ number, title, text, done }) {
-    return (
-      <div className={`workflow-step ${done ? "done" : ""}`}>
-        <div className="workflow-number">{number}</div>
-        <div>
-          <div className="workflow-title">{title}</div>
-          <div className="workflow-text">{text}</div>
-        </div>
-      </div>
-    );
-  }
-
-  function StepTracker() {
-    return (
-      <div className="step-grid">
-        {steps.map((step) => {
-          const s = stepStatus(log, step.key);
-          return (
-            <div className={`step-card ${s}`} key={step.key}>
-              <div className="step-title">{step.title}</div>
-              <div className="step-state">{s.toUpperCase()}</div>
-            </div>
-          );
-        })}
-      </div>
-    );
-  }
-
-  function SourceCard() {
-    return (
-      <div className="card">
-        <h2>Choose source</h2>
-        <p className="plain-text">
-          Import a Contract Registry bundle. Repos only work when they contain a bundle folder.
-        </p>
-
-        <div className="button-row">
-          <label className="run-btn">
-            {importing ? "Importing..." : "Import Zip"}
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".zip"
-              style={{ display: "none" }}
-              disabled={importing || running}
-              onChange={(e) => importBundle(e.target.files?.[0] || null)}
-            />
-          </label>
-
-          <div className="button-row">
-              <button className="run-btn secondary" onClick={() => pickFolder("folder")} disabled={running || importing}>
-                Choose Folder
-              </button>
-              <button className="run-btn secondary" onClick={importFolder} disabled={running || importing}>
-                Import Folder
-              </button>
-            </div>
-
-          <div className="button-row">
-              <button className="run-btn secondary" onClick={() => pickFolder("repo")} disabled={running || importing}>
-                Choose Repo
-              </button>
-              <button className="run-btn secondary" onClick={importRepo} disabled={running || importing}>
-                Import Bundle from Repo
-              </button>
-            </div>
-        </div>
-
-        {importError ? <div className="notice bad-notice">{explainError(importError)}</div> : null}
-
-        {hasImportedBundle ? (
-          <div className="notice ok-notice">
-            Source ready: {bundleSummary?.manifest?.contract_key || "Contract bundle"} / {bundleSummary?.manifest?.version_label || bundleSummary?.version?.version_label || "version"}
-          </div>
-        ) : (
-          <div className="notice muted-notice">No source imported yet.</div>
-        )}
-      </div>
-    );
-  }
-
-  function BuildCard() {
-    return (
-      <div className="card hero-card">
-        <h2>Build package</h2>
-        <p className="plain-text">
-          Run the local deterministic engine to inspect, build, verify, and export the contract package.
-        </p>
-
-        <button className="big-action" onClick={runPipeline} disabled={running || importing}>
-          {running ? "Building..." : "Build Contract Package"}
-        </button>
-
-        <div className={`package-state ${hasPackage ? "ready" : running ? "running" : ""}`}>
-          {pipelineState}
-        </div>
-
-        <StepTracker />
-      </div>
-    );
-  }
-
-  function ResultCard() {
-    return (
-      <div className="card">
-        <h2>Review result</h2>
-
-        {hasPackage ? (
-          <>
-            <div className="result-success">Package created successfully.</div>
-
-            <div className="simple-artifact">
-              <span>Export folder</span>
-              <strong>{artifacts.exportDir}</strong>
-            </div>
-
-            <div className="simple-artifact">
-              <span>Receipt hash</span>
-              <strong>{artifacts.receiptHash}</strong>
-            </div>
-
-            <div className="button-row">
-              <button className="run-btn secondary" onClick={() => openPath(artifacts.exportDir)}>
-                Open Export Folder
-              </button>
-
-              <button className="run-btn secondary" onClick={createUploadBundle}>
-                Create Upload Bundle
-              </button>
-            </div>
-
-            {uploadBundle ? (
-              <div className="notice ok-notice">
-                Upload bundle ready: {uploadBundle.zipPath}
-              </div>
-            ) : null}
-
-            {uploadError ? (
-              <div className="notice bad-notice">{explainError(uploadError)}</div>
-            ) : null}
-          </>
-        ) : (
-          <div className="notice muted-notice">
-            Build a package to see the export folder and upload bundle here.
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  function BuildTab() {
-    return (
-      <>
-        <section className="panel workflow-grid">
-          <WorkflowStep
-            number="1"
-            title="Choose source"
-            text={hasImportedBundle ? "Source imported" : "Import a zip, folder, or bundle-ready repo"}
-            done={hasImportedBundle}
-          />
-          <WorkflowStep
-            number="2"
-            title="Build package"
-            text={hasPackage ? "Build completed" : "Run the local engine"}
-            done={hasPackage}
-          />
-          <WorkflowStep
-            number="3"
-            title="Review result"
-            text={uploadBundle ? "Upload bundle ready" : "Create export/upload package"}
-            done={!!uploadBundle}
-          />
-        </section>
-
-        <section className="panel grid-three">
-          <SourceCard />
-          <BuildCard />
-          <ResultCard />
-        </section>
-      </>
-    );
-  }
-
-  function FilesTab() {
-    return (
-      <>
-        <section className="panel grid-two">
-          <div className="card">
-            <h2>Source paths</h2>
-
-            <label className="field">
-              <span>Folder bundle path</span>
-              <input value={folderPath} onChange={(e) => setFolderPath(e.target.value)} disabled={running || importing} />
-            </label>
-
-            <label className="field">
-              <span>Repo path</span>
-              <input value={repoImportPath} onChange={(e) => setRepoImportPath(e.target.value)} disabled={running || importing} />
-            </label>
-
-            <div className="button-row">
-              <button className="run-btn secondary" onClick={() => openPath(folderPath)}>Open Folder Source</button>
-              <button className="run-btn secondary" onClick={() => openPath(repoImportPath)}>Open Repo Source</button>
-            </div>
-          </div>
-
-          <div className="card">
-            <h2>Workspace</h2>
-            <div className="simple-artifact"><span>Input</span><strong>{importedRoot}</strong></div>
-            <div className="simple-artifact"><span>Output</span><strong>{outputRoot}</strong></div>
-            <div className="button-row">
-              <button className="run-btn secondary" onClick={() => openPath(importedRoot)}>Open Input</button>
-              <button className="run-btn secondary" onClick={() => openPath(outputRoot)}>Open Output</button>
-            </div>
-          </div>
-        </section>
-
-        <section className="panel grid-two">
-          <div className="card">
-            <h2>Latest release</h2>
-            <div className="mono-block">{artifacts.release || "-"}</div>
-            <button className="small-btn" onClick={() => openPath(artifacts.release)} disabled={!artifacts.release}>Open Release Folder</button>
-          </div>
-
-          <div className="card">
-            <h2>Latest export</h2>
-            <div className="mono-block">{artifacts.exportDir || "-"}</div>
-            <button className="small-btn" onClick={() => openPath(artifacts.exportDir)} disabled={!artifacts.exportDir}>Open Export Folder</button>
-          </div>
-        </section>
-      </>
-    );
-  }
-
-  function EvidenceTab() {
-    return (
-      <>
-        <section className="panel grid-two">
-          <div className="card">
-            <h2>Human summary</h2>
-            <div className="mono-block">
-              {[
-                "state: " + pipelineState,
-                "contract: " + (bundleSummary?.manifest?.contract_key || "-"),
-                "version: " + (bundleSummary?.manifest?.version_label || bundleSummary?.version?.version_label || "-"),
-                "export_ready: " + String(hasPackage),
-                "upload_bundle_ready: " + String(!!uploadBundle)
-              ].join("\n")}
-            </div>
-          </div>
-
-          <div className="card">
-            <h2>Receipt</h2>
-            <div className="mono-block">
-              {[
-                "receipt_path: " + (artifacts.receipt || "-"),
-                "receipt_sha256: " + (artifacts.receiptHash || "-"),
-                "sha256sums_path: " + (artifacts.shaPath || "-"),
-                "sha256sums_sha256: " + (artifacts.shaHash || "-"),
-                "upload_bundle: " + (uploadBundle?.zipPath || "-"),
-                "upload_bundle_sha256: " + (uploadBundle?.zipSha256 || "-")
-              ].join("\n")}
-            </div>
-          </div>
-        </section>
-
-        <section className="panel">
-          <div className="card">
-            <h2>Technical log</h2>
-            <pre className="console">{log || "No output yet."}</pre>
-          </div>
-        </section>
-      </>
-    );
-  }
-
-  function SettingsTab() {
-    return (
-      <>
-        <section className="panel grid-two">
-          <div className="card">
-            <h2>Local paths</h2>
-
-            <label className="field">
-              <span>Repo root</span>
-              <input value={repoRoot} onChange={(e) => setRepoRoot(e.target.value)} disabled={running || importing} />
-            </label>
-
-            <label className="field">
-              <span>Workspace</span>
-              <input value={workspace} onChange={(e) => setWorkspace(e.target.value)} disabled={running || importing} />
-            </label>
-          </div>
-
-          <div className="card">
-            <h2>Runtime</h2>
-            <div className="mono-block">
-              {[
-                "mode: local",
-                "public_hosting: disabled",
-                "ui_dev_port: 5174",
-                "local_bridge_port: 5175",
-                "open_path_status: " + (openStatus || "-")
-              ].join("\n")}
-            </div>
-
-            <button className="run-btn danger" onClick={() => {
-              localStorage.removeItem(STORAGE_KEY);
-              setLog("");
-              setImportError("");
-              setImportToken("");
-              setBundleSummary(null);
-              setOpenStatus("");
-              setUploadBundle(null);
-              setUploadError("");
-              setActiveTab("Build");
-            }}>
-              Reset UI State
-            </button>
-          </div>
-        </section>
-      </>
-    );
+    await fetch(API + "/api/open-path", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetPath })
+    });
   }
 
   return (
-    <div className="shell">
-      <aside className="sidebar">
-        <div className="brand">
-          <div className="brand-title">Contract Registry</div>
-          <div className="brand-subtitle">Workbench Local</div>
+    <div className="app">
+      <aside>
+        <h1>Contract Registry</h1>
+        <p>Workbench</p>
+
+        <div className="side-status">
+          <span>Bridge</span>
+          <b className={bridgeOk ? "green" : "red"}>{bridgeOk ? "Connected" : "Offline"}</b>
         </div>
 
-        <nav className="nav">
-          {tabs.map((tab) => (
-            <button
-              key={tab}
-              className={`nav-item nav-button ${activeTab === tab ? "active" : ""}`}
-              onClick={() => setActiveTab(tab)}
-            >
-              {tab}
-            </button>
-          ))}
-        </nav>
+        <div className="side-status">
+          <span>Status</span>
+          <b>{status}</b>
+        </div>
       </aside>
 
-      <main className="main">
-        <header className="header">
-          <div>
-            <h1>{activeTab}</h1>
-            <p>
-              {activeTab === "Build" && "Import a source, build a package, and prepare it for upload."}
-              {activeTab === "Files" && "Open source, workspace, release, and export folders."}
-              {activeTab === "Evidence" && "Review receipts, hashes, and the technical log."}
-              {activeTab === "Settings" && "Local-only paths and runtime settings."}
-            </p>
-          </div>
+      <main>
+        <header>
+          <h2>Build Contract Package</h2>
+          <p>Import a contract bundle, build it locally, then create an upload file.</p>
         </header>
 
-        {activeTab === "Build" && <BuildTab />}
-        {activeTab === "Files" && <FilesTab />}
-        {activeTab === "Evidence" && <EvidenceTab />}
-        {activeTab === "Settings" && <SettingsTab />}
+        {!bridgeOk && (
+          <div className="error">
+            Local bridge is offline. Start the Workbench dev server and refresh.
+          </div>
+        )}
+
+        {error && <div className="error">{error}</div>}
+
+        <section className="cards">
+          <div className="card">
+            <div className="num">1</div>
+            <h3>Choose source</h3>
+            <p>Use a bundle zip, a bundle folder, or scan any local repo into a generated bundle.</p>
+
+            <div className="buttons">
+              <label className="button">
+                Choose Zip
+                <input ref={zipRef} type="file" accept=".zip" onChange={(e) => importZip(e.target.files?.[0])} />
+              </label>
+              <button onClick={importFolder} disabled={busy || !bridgeOk}>Choose Bundle Folder</button>
+<button onClick={importAnyRepo} disabled={busy || !bridgeOk}>Scan Repo</button>
+            </div>
+
+            <div className={source ? "notice good" : "notice"}>
+              {source ? (
+                <>
+                  <b>Source ready</b>
+                  <span>{source.contractKey} / {source.versionLabel}</span>
+                  <small>{sourcePath}</small>
+                </>
+              ) : (
+                "No source selected yet."
+              )}
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="num">2</div>
+            <h3>Build package</h3>
+            <p>Runs inspect, build, verify, and export using the local engine.</p>
+
+            <button className="primary" onClick={buildPackage} disabled={busy || !bridgeOk}>
+              {busy ? "Working..." : "Build Package"}
+            </button>
+
+            <div className="steps">
+              <span className={done("inspect", log) ? "done" : ""}>Inspect</span>
+              <span className={done("build", log) ? "done" : ""}>Build</span>
+              <span className={done("verify", log) ? "done" : ""}>Verify</span>
+              <span className={done("export", log) ? "done" : ""}>Export</span>
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="num">3</div>
+            <h3>Review result</h3>
+
+            {ready ? (
+              <>
+                <div className="notice good">
+                  <b>Package created</b>
+                  <span>Ready for review or upload packaging.</span>
+                </div>
+
+                <button onClick={() => openPath(exportDir)}>Open Export Folder</button>
+                <button onClick={createUploadBundle} disabled={busy}>Create Upload Bundle</button>
+
+                {upload && (
+                  <div className="notice good">
+                    <b>Upload bundle ready</b>
+                    <small>{upload.zipPath}</small>
+                    <small>{upload.zipSha256}</small>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="notice">Build the package to see the result.</div>
+            )}
+          </div>
+        </section>
+
+        <section className="advanced">
+          <button onClick={() => setShowTech(!showTech)}>
+            {showTech ? "Hide technical details" : "Show technical details"}
+          </button>
+
+          {showTech && (
+            <div className="details">
+              <h3>Evidence</h3>
+              <code>Release: {releaseDir || "-"}</code>
+              <code>Export: {exportDir || "-"}</code>
+              <code>Receipt: {receipt || "-"}</code>
+              <code>Receipt SHA-256: {receiptHash || "-"}</code>
+
+              <h3>Log</h3>
+              <pre>{log || "No log yet."}</pre>
+            </div>
+          )}
+        </section>
       </main>
     </div>
   );
