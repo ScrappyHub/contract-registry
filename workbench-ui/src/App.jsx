@@ -240,6 +240,31 @@ export default function App() {
     }
   }
 
+  async function pickFolder(kind) {
+    try {
+      const response = await fetch("http://localhost:5175/api/pick-folder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: kind === "repo" ? "Choose repository folder" : "Choose contract bundle folder" })
+      });
+
+      const data = await response.json();
+
+      if (!data.ok) {
+        setImportError(data.error || "PICK_FOLDER_FAILED");
+        return;
+      }
+
+      if (kind === "repo") {
+        setRepoImportPath(data.selectedPath);
+      } else {
+        setFolderPath(data.selectedPath);
+      }
+    } catch (err) {
+      setImportError("PICK_FOLDER_REQUEST_FAILED: " + err.message);
+    }
+  }
+
   async function openPath(targetPath) {
     if (!targetPath) return;
 
@@ -375,13 +400,23 @@ export default function App() {
             />
           </label>
 
-          <button className="run-btn secondary" onClick={importFolder} disabled={running || importing}>
-            Import Folder
-          </button>
+          <div className="button-row">
+              <button className="run-btn secondary" onClick={() => pickFolder("folder")} disabled={running || importing}>
+                Choose Folder
+              </button>
+              <button className="run-btn secondary" onClick={importFolder} disabled={running || importing}>
+                Import Folder
+              </button>
+            </div>
 
-          <button className="run-btn secondary" onClick={importRepo} disabled={running || importing}>
-            Import Bundle from Repo
-          </button>
+          <div className="button-row">
+              <button className="run-btn secondary" onClick={() => pickFolder("repo")} disabled={running || importing}>
+                Choose Repo
+              </button>
+              <button className="run-btn secondary" onClick={importRepo} disabled={running || importing}>
+                Import Bundle from Repo
+              </button>
+            </div>
         </div>
 
         {importError ? <div className="notice bad-notice">{explainError(importError)}</div> : null}
