@@ -249,3 +249,16 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+.nav-button {
+  text-align: left;
+  width: 100%;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.nav-button:hover {
+  background: #243244;
+}

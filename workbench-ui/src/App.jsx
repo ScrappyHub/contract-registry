@@ -11,11 +11,16 @@ function stepStatus(log, step) {
   return "idle";
 }
 
+const tabs = ["Pipeline", "Workspace", "Evidence", "Settings"];
+
 export default function App() {
+  const [activeTab, setActiveTab] = useState("Pipeline");
+
   const [repoRoot, setRepoRoot] = useState("C:\\dev\\contract-registry");
   const [workspace, setWorkspace] = useState("C:\\dev\\contract-registry\\workbench\\workspace");
   const [folderPath, setFolderPath] = useState("C:\\dev\\contract-registry\\workbench\\workspace\\contract_bundle_unzipped");
   const [repoImportPath, setRepoImportPath] = useState("C:\\dev\\contract-registry");
+
   const [log, setLog] = useState("");
   const [running, setRunning] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -51,6 +56,11 @@ export default function App() {
     { key: "verify", title: "Verify" },
     { key: "export", title: "Export" }
   ];
+
+  const importedRoot = workspace + "\\input\\contract";
+  const outputRoot = workspace + "\\output";
+  const releasesRoot = outputRoot + "\\releases";
+  const exportsRoot = outputRoot + "\\exports";
 
   function setImportOk(data, label) {
     setImportToken(data.token || "WORKBENCH_IMPORT_OK");
@@ -205,33 +215,111 @@ export default function App() {
     }
   }
 
-  return (
-    <div className="shell">
-      <aside className="sidebar">
-        <div className="brand">
-          <div className="brand-title">Contract Registry</div>
-          <div className="brand-subtitle">Workbench v0.1.1 Local</div>
+  function StatusCard() {
+    return (
+      <div className="card">
+        <h2>Status</h2>
+        <div className="status-row">
+          <span>Pipeline State</span>
+          <strong className={status === "GREEN" ? "ok" : status === "RUNNING" ? "warn" : status === "FAILED" ? "bad" : "muted"}>{status}</strong>
         </div>
-        <nav className="nav">
-          <div className="nav-item active">Pipeline</div>
-          <div className="nav-item">Workspace</div>
-          <div className="nav-item">Evidence</div>
-          <div className="nav-item">Settings</div>
-        </nav>
-      </aside>
+        <div className="status-row">
+          <span>Import Token</span>
+          <strong className={importToken ? "ok" : "muted"}>{importToken || "-"}</strong>
+        </div>
+        <div className="status-row">
+          <span>Import Error</span>
+          <strong className={importError ? "bad" : "muted"}>{importError || "-"}</strong>
+        </div>
+        <div className="status-row">
+          <span>Open Path</span>
+          <strong className={openStatus === "OPEN_PATH_OK" ? "ok" : openStatus ? "bad" : "muted"}>{openStatus || "-"}</strong>
+        </div>
+      </div>
+    );
+  }
 
-      <main className="main">
-        <header className="header">
-          <div>
-            <h1>Workbench Pipeline</h1>
-            <p>Local operator dashboard over the deterministic engine.</p>
+  function StepTracker() {
+    return (
+      <div className="card">
+        <h2>Step Tracker</h2>
+        <div className="step-grid">
+          {steps.map((step) => {
+            const s = stepStatus(log, step.key);
+            return (
+              <div className={`step-card ${s}`} key={step.key}>
+                <div className="step-title">{step.title}</div>
+                <div className="step-state">{s.toUpperCase()}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  function ImportedSummaryCards() {
+    return (
+      <section className="panel grid-two">
+        <div className="card">
+          <h2>Imported Contract Summary</h2>
+          <div className="mono-block">
+            {!bundleSummary ? "-" : [
+              "contract_key: " + (bundleSummary?.manifest?.contract_key || "-"),
+              "version_label: " + (bundleSummary?.manifest?.version_label || bundleSummary?.version?.version_label || "-"),
+              "policy_overlay_count: " + String(bundleSummary?.counts?.policyOverlays ?? 0),
+              "schema_overlay_count: " + String(bundleSummary?.counts?.schemaOverlays ?? 0),
+              "manifest_sha256: " + (bundleSummary?.hashes?.manifest || "-"),
+              "contract_sha256: " + (bundleSummary?.hashes?.contract || "-"),
+              "version_sha256: " + (bundleSummary?.hashes?.version || "-")
+            ].join("\n")}
           </div>
+        </div>
 
-          <button className="run-btn" onClick={runPipeline} disabled={running || importing}>
-            {running ? "Running..." : "Run Pipeline"}
-          </button>
-        </header>
+        <div className="card">
+          <h2>Imported Overlay Files</h2>
+          <div className="mono-block">
+            {!bundleSummary ? "-" : [
+              "# policy",
+              ...(bundleSummary?.files?.policy?.length ? bundleSummary.files.policy : ["-"]),
+              "# schema",
+              ...(bundleSummary?.files?.schema?.length ? bundleSummary.files.schema : ["-"])
+            ].join("\n")}
+          </div>
+        </div>
+      </section>
+    );
+  }
 
+  function ArtifactCards() {
+    return (
+      <section className="panel grid-two">
+        <div className="card">
+          <h2>Latest Release</h2>
+          <div className="mono-block">{artifacts.release || "-"}</div>
+          <button className="small-btn" onClick={() => openPath(artifacts.release)} disabled={!artifacts.release}>Open Release Folder</button>
+
+          <h2 style={{ marginTop: "16px" }}>SHA256SUMS</h2>
+          <div className="mono-block">{artifacts.shaPath || "-"}</div>
+          <div className="mono-block">{artifacts.shaHash || "-"}</div>
+        </div>
+
+        <div className="card">
+          <h2>Latest Export</h2>
+          <div className="mono-block">{artifacts.exportDir || "-"}</div>
+          <button className="small-btn" onClick={() => openPath(artifacts.exportDir)} disabled={!artifacts.exportDir}>Open Export Folder</button>
+
+          <h2 style={{ marginTop: "16px" }}>Export Receipt</h2>
+          <div className="mono-block">{artifacts.receipt || "-"}</div>
+          <div className="mono-block">{artifacts.receiptHash || "-"}</div>
+        </div>
+      </section>
+    );
+  }
+
+  function PipelineTab() {
+    return (
+      <>
         <section className="panel grid-two">
           <div className="card">
             <h2>Inputs</h2>
@@ -247,42 +335,11 @@ export default function App() {
             </label>
           </div>
 
-          <div className="card">
-            <h2>Status</h2>
-            <div className="status-row">
-              <span>Pipeline State</span>
-              <strong className={status === "GREEN" ? "ok" : status === "RUNNING" ? "warn" : status === "FAILED" ? "bad" : "muted"}>{status}</strong>
-            </div>
-            <div className="status-row">
-              <span>Import Token</span>
-              <strong className={importToken ? "ok" : "muted"}>{importToken || "-"}</strong>
-            </div>
-            <div className="status-row">
-              <span>Import Error</span>
-              <strong className={importError ? "bad" : "muted"}>{importError || "-"}</strong>
-            </div>
-            <div className="status-row">
-              <span>Open Path</span>
-              <strong className={openStatus === "OPEN_PATH_OK" ? "ok" : openStatus ? "bad" : "muted"}>{openStatus || "-"}</strong>
-            </div>
-          </div>
+          <StatusCard />
         </section>
 
         <section className="panel">
-          <div className="card">
-            <h2>Step Tracker</h2>
-            <div className="step-grid">
-              {steps.map((step) => {
-                const s = stepStatus(log, step.key);
-                return (
-                  <div className={`step-card ${s}`} key={step.key}>
-                    <div className="step-title">{step.title}</div>
-                    <div className="step-state">{s.toUpperCase()}</div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          <StepTracker />
         </section>
 
         <section className="panel grid-two">
@@ -311,56 +368,8 @@ export default function App() {
           </div>
         </section>
 
-        <section className="panel grid-two">
-          <div className="card">
-            <h2>Imported Contract Summary</h2>
-            <div className="mono-block">
-              {!bundleSummary ? "-" : [
-                "contract_key: " + (bundleSummary?.manifest?.contract_key || "-"),
-                "version_label: " + (bundleSummary?.manifest?.version_label || bundleSummary?.version?.version_label || "-"),
-                "policy_overlay_count: " + String(bundleSummary?.counts?.policyOverlays ?? 0),
-                "schema_overlay_count: " + String(bundleSummary?.counts?.schemaOverlays ?? 0),
-                "manifest_sha256: " + (bundleSummary?.hashes?.manifest || "-"),
-                "contract_sha256: " + (bundleSummary?.hashes?.contract || "-"),
-                "version_sha256: " + (bundleSummary?.hashes?.version || "-")
-              ].join("\n")}
-            </div>
-          </div>
-
-          <div className="card">
-            <h2>Imported Overlay Files</h2>
-            <div className="mono-block">
-              {!bundleSummary ? "-" : [
-                "# policy",
-                ...(bundleSummary?.files?.policy?.length ? bundleSummary.files.policy : ["-"]),
-                "# schema",
-                ...(bundleSummary?.files?.schema?.length ? bundleSummary.files.schema : ["-"])
-              ].join("\n")}
-            </div>
-          </div>
-        </section>
-
-        <section className="panel grid-two">
-          <div className="card">
-            <h2>Latest Release</h2>
-            <div className="mono-block">{artifacts.release || "-"}</div>
-            <button className="small-btn" onClick={() => openPath(artifacts.release)} disabled={!artifacts.release}>Open Release Folder</button>
-
-            <h2 style={{ marginTop: "16px" }}>SHA256SUMS</h2>
-            <div className="mono-block">{artifacts.shaPath || "-"}</div>
-            <div className="mono-block">{artifacts.shaHash || "-"}</div>
-          </div>
-
-          <div className="card">
-            <h2>Latest Export</h2>
-            <div className="mono-block">{artifacts.exportDir || "-"}</div>
-            <button className="small-btn" onClick={() => openPath(artifacts.exportDir)} disabled={!artifacts.exportDir}>Open Export Folder</button>
-
-            <h2 style={{ marginTop: "16px" }}>Export Receipt</h2>
-            <div className="mono-block">{artifacts.receipt || "-"}</div>
-            <div className="mono-block">{artifacts.receiptHash || "-"}</div>
-          </div>
-        </section>
+        <ImportedSummaryCards />
+        <ArtifactCards />
 
         <section className="panel">
           <div className="card">
@@ -368,6 +377,192 @@ export default function App() {
             <pre className="console">{log || "No output yet."}</pre>
           </div>
         </section>
+      </>
+    );
+  }
+
+  function WorkspaceTab() {
+    return (
+      <>
+        <section className="panel grid-two">
+          <div className="card">
+            <h2>Workspace Paths</h2>
+            <div className="mono-block">repo_root: {repoRoot}</div>
+            <button className="small-btn" onClick={() => openPath(repoRoot)}>Open Repo Root</button>
+
+            <div className="mono-block" style={{ marginTop: "12px" }}>workspace: {workspace}</div>
+            <button className="small-btn" onClick={() => openPath(workspace)}>Open Workspace</button>
+
+            <div className="mono-block" style={{ marginTop: "12px" }}>input_contract: {importedRoot}</div>
+            <button className="small-btn" onClick={() => openPath(importedRoot)}>Open Input Contract</button>
+          </div>
+
+          <StatusCard />
+        </section>
+
+        <ImportedSummaryCards />
+
+        <section className="panel grid-two">
+          <div className="card">
+            <h2>Workspace Output Roots</h2>
+            <div className="mono-block">output: {outputRoot}</div>
+            <button className="small-btn" onClick={() => openPath(outputRoot)}>Open Output Root</button>
+
+            <div className="mono-block" style={{ marginTop: "12px" }}>releases: {releasesRoot}</div>
+            <button className="small-btn" onClick={() => openPath(releasesRoot)}>Open Releases Root</button>
+
+            <div className="mono-block" style={{ marginTop: "12px" }}>exports: {exportsRoot}</div>
+            <button className="small-btn" onClick={() => openPath(exportsRoot)}>Open Exports Root</button>
+          </div>
+
+          <div className="card">
+            <h2>Current Import Sources</h2>
+            <div className="mono-block">folder_bundle_path: {folderPath}</div>
+            <div className="mono-block" style={{ marginTop: "12px" }}>repo_import_path: {repoImportPath}</div>
+          </div>
+        </section>
+      </>
+    );
+  }
+
+  function EvidenceTab() {
+    return (
+      <>
+        <ArtifactCards />
+
+        <section className="panel grid-two">
+          <div className="card">
+            <h2>Verification Evidence</h2>
+            <div className="mono-block">
+              {[
+                "pipeline_state: " + status,
+                "inspect: " + stepStatus(log, "inspect").toUpperCase(),
+                "build: " + stepStatus(log, "build").toUpperCase(),
+                "verify: " + stepStatus(log, "verify").toUpperCase(),
+                "export: " + stepStatus(log, "export").toUpperCase(),
+                "full_green: " + String(log.includes("WORKBENCH_FULL_PIPELINE_GREEN"))
+              ].join("\n")}
+            </div>
+          </div>
+
+          <div className="card">
+            <h2>Receipt Summary</h2>
+            <div className="mono-block">
+              {[
+                "receipt_path: " + (artifacts.receipt || "-"),
+                "receipt_sha256: " + (artifacts.receiptHash || "-"),
+                "sha256sums_path: " + (artifacts.shaPath || "-"),
+                "sha256sums_sha256: " + (artifacts.shaHash || "-")
+              ].join("\n")}
+            </div>
+          </div>
+        </section>
+
+        <section className="panel">
+          <StepTracker />
+        </section>
+      </>
+    );
+  }
+
+  function SettingsTab() {
+    return (
+      <>
+        <section className="panel grid-two">
+          <div className="card">
+            <h2>Local Settings</h2>
+
+            <label className="field">
+              <span>Repo Root</span>
+              <input value={repoRoot} onChange={(e) => setRepoRoot(e.target.value)} disabled={running || importing} />
+            </label>
+
+            <label className="field">
+              <span>Workspace</span>
+              <input value={workspace} onChange={(e) => setWorkspace(e.target.value)} disabled={running || importing} />
+            </label>
+
+            <label className="field">
+              <span>Folder Bundle Path</span>
+              <input value={folderPath} onChange={(e) => setFolderPath(e.target.value)} disabled={running || importing} />
+            </label>
+
+            <label className="field">
+              <span>Repo Import Path</span>
+              <input value={repoImportPath} onChange={(e) => setRepoImportPath(e.target.value)} disabled={running || importing} />
+            </label>
+          </div>
+
+          <div className="card">
+            <h2>Runtime Ports</h2>
+            <div className="mono-block">
+              {[
+                "ui_dev_port: 5174",
+                "local_bridge_port: 5175",
+                "public_hosting: disabled",
+                "desktop_ready: true"
+              ].join("\n")}
+            </div>
+
+            <h2 style={{ marginTop: "16px" }}>Reset Local UI State</h2>
+            <button className="run-btn" onClick={() => {
+              setLog("");
+              setImportError("");
+              setImportToken("");
+              setBundleSummary(null);
+              setOpenStatus("");
+            }}>
+              Reset UI State
+            </button>
+          </div>
+        </section>
+      </>
+    );
+  }
+
+  return (
+    <div className="shell">
+      <aside className="sidebar">
+        <div className="brand">
+          <div className="brand-title">Contract Registry</div>
+          <div className="brand-subtitle">Workbench v0.1.2 Local</div>
+        </div>
+        <nav className="nav">
+          {tabs.map((tab) => (
+            <button
+              key={tab}
+              className={`nav-item nav-button ${activeTab === tab ? "active" : ""}`}
+              onClick={() => setActiveTab(tab)}
+            >
+              {tab}
+            </button>
+          ))}
+        </nav>
+      </aside>
+
+      <main className="main">
+        <header className="header">
+          <div>
+            <h1>{activeTab}</h1>
+            <p>
+              {activeTab === "Pipeline" && "Local operator dashboard over the deterministic engine."}
+              {activeTab === "Workspace" && "Workspace paths, import state, and local artifact roots."}
+              {activeTab === "Evidence" && "Release, export, receipt, and verification evidence."}
+              {activeTab === "Settings" && "Local-only settings for paths, ports, and UI state."}
+            </p>
+          </div>
+
+          {activeTab === "Pipeline" && (
+            <button className="run-btn" onClick={runPipeline} disabled={running || importing}>
+              {running ? "Running..." : "Run Pipeline"}
+            </button>
+          )}
+        </header>
+
+        {activeTab === "Pipeline" && <PipelineTab />}
+        {activeTab === "Workspace" && <WorkspaceTab />}
+        {activeTab === "Evidence" && <EvidenceTab />}
+        {activeTab === "Settings" && <SettingsTab />}
       </main>
     </div>
   );
