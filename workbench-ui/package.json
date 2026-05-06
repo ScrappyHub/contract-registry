@@ -7,11 +7,13 @@
     "dev": "concurrently \"node server.js\" \"vite\"",
     "ui": "vite",
     "api": "node server.js",
-    "build": "vite build"
+    "build": "vite build",
+    "desktop": "npm run build && concurrently \"node server.js\" \"electron electron-main.cjs\""
   },
   "dependencies": {
     "adm-zip": "^0.5.16",
     "cors": "^2.8.6",
+    "electron": "^35.0.0",
     "express": "^4.21.2",
     "multer": "^1.4.5-lts.2",
     "react": "^18.3.1",
