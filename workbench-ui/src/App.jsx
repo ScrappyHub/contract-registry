@@ -14,6 +14,8 @@ function done(step, log) {
 export default function App() {
   const [repoRoot] = useState("C:\\dev\\contract-registry");
   const [workspace] = useState("C:\\dev\\contract-registry\\workbench\\workspace");
+  const [bundleFolderPath, setBundleFolderPath] = useState("C:\\dev\\contract-registry\\workbench\\workspace\\contract_bundle_unzipped");
+  const [repoScanPath, setRepoScanPath] = useState("C:\\dev\\atlas-update");
 
   const [bridgeOk, setBridgeOk] = useState(false);
   const [source, setSource] = useState(null);
@@ -94,28 +96,25 @@ export default function App() {
     }
   }
 
-  async function importAnyRepo() {
+  async function importFolder() {
     setBusy(true);
     setError("");
     setUpload(null);
-    setStatus("Choosing repo...");
+    setStatus("Importing bundle folder...");
 
     try {
-      const repoPath = await pickFolder();
-      setStatus("Scanning repo...");
-
-      const res = await fetch(API + "/api/import-any-repo", {
+      const res = await fetch(API + "/api/import-folder", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repoPath, workspace })
+        body: JSON.stringify({ folderPath: bundleFolderPath, workspace })
       });
 
       const data = await res.json();
       if (!data.ok) throw new Error(data.error);
 
       setSource(data.summary);
-      setSourcePath(repoPath);
-      setLog("Source generated from repo scan.\n");
+      setSourcePath(bundleFolderPath);
+      setLog("Source imported from folder.\n");
       setStatus("Source ready");
     } catch (e) {
       fail(e.message);
@@ -124,28 +123,25 @@ export default function App() {
     }
   }
 
-  async function importFolder() {
+  async function importAnyRepo() {
     setBusy(true);
     setError("");
     setUpload(null);
-    setStatus("Choosing folder...");
+    setStatus("Scanning repo...");
 
     try {
-      const folderPath = await pickFolder();
-      setStatus("Importing folder...");
-
-      const res = await fetch(API + "/api/import-folder", {
+      const res = await fetch(API + "/api/import-any-repo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ folderPath, workspace })
+        body: JSON.stringify({ repoPath: repoScanPath, workspace })
       });
 
       const data = await res.json();
       if (!data.ok) throw new Error(data.error);
 
       setSource(data.summary);
-      setSourcePath(folderPath);
-      setLog("Source imported from folder.\n");
+      setSourcePath(repoScanPath);
+      setLog("Source generated from repo scan.\n");
       setStatus("Source ready");
     } catch (e) {
       fail(e.message);
