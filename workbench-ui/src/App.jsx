@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
+const STORAGE_KEY = "contract_registry_workbench_simple_v1";
+const tabs = ["Build", "Files", "Evidence", "Settings"];
+
 function valueAfter(label, text) {
   const line = text.split(/\r?\n/).find((x) => x.startsWith(label));
   return line ? line.slice(label.length).trim() : "";
@@ -11,9 +14,6 @@ function stepStatus(log, step) {
   return "idle";
 }
 
-const tabs = ["Pipeline", "Workspace", "Evidence", "Settings"];
-const STORAGE_KEY = "contract_registry_workbench_v012_state";
-
 function loadSavedState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -23,10 +23,44 @@ function loadSavedState() {
   }
 }
 
+function explainError(error) {
+  if (!error) return "-";
+
+  if (error.includes("IMPORT_FAIL_REPO_BUNDLE_NOT_FOUND")) {
+    return "No Contract Registry bundle was found in that repo.";
+  }
+
+  if (error.includes("IMPORT_FAIL_SOURCE_EQUALS_DESTINATION")) {
+    return "That folder is already the active workspace input. Choose a separate source folder.";
+  }
+
+  if (error.includes("IMPORT_FAIL_SOURCE_NOT_FOUND")) {
+    return "That folder does not exist.";
+  }
+
+  if (error.includes("IMPORT_FAIL_MISSING_FILE")) {
+    return "The selected source is missing manifest.json, contract.json, or version.json.";
+  }
+
+  if (error.includes("IMPORT_FAIL_INVALID_JSON")) {
+    return "One of the bundle JSON files is invalid.";
+  }
+
+  if (error.includes("EPERM")) {
+    return "Windows blocked access to that folder. Close Explorer or apps using it, then try again.";
+  }
+
+  if (error.includes("OPEN_PATH_NOT_FOUND")) {
+    return "That folder does not exist yet.";
+  }
+
+  return error;
+}
+
 export default function App() {
   const saved = useMemo(() => loadSavedState(), []);
 
-  const [activeTab, setActiveTab] = useState(saved.activeTab || "Pipeline");
+  const [activeTab, setActiveTab] = useState(saved.activeTab || "Build");
 
   const [repoRoot, setRepoRoot] = useState(saved.repoRoot || "C:\\dev\\contract-registry");
   const [workspace, setWorkspace] = useState(saved.workspace || "C:\\dev\\contract-registry\\workbench\\workspace");
@@ -40,6 +74,8 @@ export default function App() {
   const [importToken, setImportToken] = useState(saved.importToken || "");
   const [bundleSummary, setBundleSummary] = useState(saved.bundleSummary || null);
   const [openStatus, setOpenStatus] = useState("");
+  const [uploadBundle, setUploadBundle] = useState(saved.uploadBundle || null);
+  const [uploadError, setUploadError] = useState("");
 
   const fileRef = useRef(null);
 
@@ -53,7 +89,8 @@ export default function App() {
       log,
       importError,
       importToken,
-      bundleSummary
+      bundleSummary,
+      uploadBundle
     };
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
@@ -66,15 +103,16 @@ export default function App() {
     log,
     importError,
     importToken,
-    bundleSummary
+    bundleSummary,
+    uploadBundle
   ]);
 
-  const status = useMemo(() => {
-    if (running) return "RUNNING";
-    if (log.includes("WORKBENCH_FULL_PIPELINE_GREEN")) return "GREEN";
-    if (log.includes("PROCESS_EXIT_CODE:0")) return "DONE";
-    if (log.includes("ERR:") || /PROCESS_EXIT_CODE:(?!0)\d+/.test(log)) return "FAILED";
-    return "IDLE";
+  const pipelineState = useMemo(() => {
+    if (running) return "Running";
+    if (log.includes("WORKBENCH_FULL_PIPELINE_GREEN")) return "Package ready";
+    if (log.includes("PROCESS_EXIT_CODE:0")) return "Finished";
+    if (log.includes("ERR:") || /PROCESS_EXIT_CODE:(?!0)\d+/.test(log)) return "Failed";
+    return "Ready";
   }, [running, log]);
 
   const artifacts = useMemo(() => {
@@ -87,6 +125,9 @@ export default function App() {
       shaHash: valueAfter("SHA256SUMS_HASH:", log)
     };
   }, [log]);
+
+  const hasImportedBundle = importToken === "WORKBENCH_IMPORT_OK" && !!bundleSummary;
+  const hasPackage = log.includes("WORKBENCH_FULL_PIPELINE_GREEN") && !!artifacts.exportDir;
 
   const steps = [
     { key: "inspect", title: "Inspect" },
@@ -103,11 +144,15 @@ export default function App() {
   function setImportOk(data, label) {
     setImportToken(data.token || "WORKBENCH_IMPORT_OK");
     setBundleSummary(data.summary || null);
-    setLog((prev) => prev + label + "\nWORKBENCH_IMPORT_OK\n");
+    setImportError("");
+    setUploadBundle(null);
+    setUploadError("");
+    setLog(label + "\nWORKBENCH_IMPORT_OK\n");
   }
 
   async function importBundle(file) {
     if (!file) return;
+
     setImporting(true);
     setImportError("");
     setImportToken("");
@@ -130,7 +175,7 @@ export default function App() {
         return;
       }
 
-      setImportOk(data, "IMPORT_MODE: zip");
+      setImportOk(data, "Imported zip bundle.");
     } catch (err) {
       setImportError("IMPORT_REQUEST_FAILED: " + err.message);
     } finally {
@@ -159,7 +204,7 @@ export default function App() {
         return;
       }
 
-      setImportOk(data, "IMPORT_MODE: folder");
+      setImportOk(data, "Imported folder bundle.");
     } catch (err) {
       setImportError("IMPORT_FOLDER_REQUEST_FAILED: " + err.message);
     } finally {
@@ -187,7 +232,7 @@ export default function App() {
         return;
       }
 
-      setImportOk(data, "IMPORT_MODE: repo");
+      setImportOk(data, "Imported bundle from repo.");
     } catch (err) {
       setImportError("IMPORT_REPO_REQUEST_FAILED: " + err.message);
     } finally {
@@ -220,10 +265,38 @@ export default function App() {
     }
   }
 
+  async function createUploadBundle() {
+    if (!artifacts.exportDir) return;
+
+    setUploadError("");
+    setUploadBundle(null);
+
+    try {
+      const response = await fetch("http://localhost:5175/api/export-upload-bundle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ exportDir: artifacts.exportDir })
+      });
+
+      const data = await response.json();
+
+      if (!data.ok) {
+        setUploadError(data.error || "EXPORT_UPLOAD_BUNDLE_FAILED");
+        return;
+      }
+
+      setUploadBundle(data);
+    } catch (err) {
+      setUploadError("EXPORT_UPLOAD_REQUEST_FAILED: " + err.message);
+    }
+  }
+
   async function runPipeline() {
     setLog("");
     setRunning(true);
     setOpenStatus("");
+    setUploadBundle(null);
+    setUploadError("");
 
     try {
       const response = await fetch("http://localhost:5175/run", {
@@ -253,25 +326,13 @@ export default function App() {
     }
   }
 
-  function StatusCard() {
+  function WorkflowStep({ number, title, text, done }) {
     return (
-      <div className="card">
-        <h2>Status</h2>
-        <div className="status-row">
-          <span>Pipeline State</span>
-          <strong className={status === "GREEN" ? "ok" : status === "RUNNING" ? "warn" : status === "FAILED" ? "bad" : "muted"}>{status}</strong>
-        </div>
-        <div className="status-row">
-          <span>Import Token</span>
-          <strong className={importToken ? "ok" : "muted"}>{importToken || "-"}</strong>
-        </div>
-        <div className="status-row">
-          <span>Import Error</span>
-          <strong className={importError ? "bad" : "muted"}>{importError || "-"}</strong>
-        </div>
-        <div className="status-row">
-          <span>Open Path</span>
-          <strong className={openStatus === "OPEN_PATH_OK" ? "ok" : openStatus ? "bad" : "muted"}>{openStatus || "-"}</strong>
+      <div className={`workflow-step ${done ? "done" : ""}`}>
+        <div className="workflow-number">{number}</div>
+        <div>
+          <div className="workflow-title">{title}</div>
+          <div className="workflow-text">{text}</div>
         </div>
       </div>
     );
@@ -279,184 +340,210 @@ export default function App() {
 
   function StepTracker() {
     return (
-      <div className="card">
-        <h2>Step Tracker</h2>
-        <div className="step-grid">
-          {steps.map((step) => {
-            const s = stepStatus(log, step.key);
-            return (
-              <div className={`step-card ${s}`} key={step.key}>
-                <div className="step-title">{step.title}</div>
-                <div className="step-state">{s.toUpperCase()}</div>
-              </div>
-            );
-          })}
-        </div>
+      <div className="step-grid">
+        {steps.map((step) => {
+          const s = stepStatus(log, step.key);
+          return (
+            <div className={`step-card ${s}`} key={step.key}>
+              <div className="step-title">{step.title}</div>
+              <div className="step-state">{s.toUpperCase()}</div>
+            </div>
+          );
+        })}
       </div>
     );
   }
 
-  function ImportedSummaryCards() {
+  function SourceCard() {
     return (
-      <section className="panel grid-two">
-        <div className="card">
-          <h2>Imported Contract Summary</h2>
-          <div className="mono-block">
-            {!bundleSummary ? "-" : [
-              "contract_key: " + (bundleSummary?.manifest?.contract_key || "-"),
-              "version_label: " + (bundleSummary?.manifest?.version_label || bundleSummary?.version?.version_label || "-"),
-              "policy_overlay_count: " + String(bundleSummary?.counts?.policyOverlays ?? 0),
-              "schema_overlay_count: " + String(bundleSummary?.counts?.schemaOverlays ?? 0),
-              "manifest_sha256: " + (bundleSummary?.hashes?.manifest || "-"),
-              "contract_sha256: " + (bundleSummary?.hashes?.contract || "-"),
-              "version_sha256: " + (bundleSummary?.hashes?.version || "-")
-            ].join("\n")}
-          </div>
+      <div className="card">
+        <h2>Choose source</h2>
+        <p className="plain-text">
+          Import a Contract Registry bundle. Repos only work when they contain a bundle folder.
+        </p>
+
+        <div className="button-row">
+          <label className="run-btn">
+            {importing ? "Importing..." : "Import Zip"}
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".zip"
+              style={{ display: "none" }}
+              disabled={importing || running}
+              onChange={(e) => importBundle(e.target.files?.[0] || null)}
+            />
+          </label>
+
+          <button className="run-btn secondary" onClick={importFolder} disabled={running || importing}>
+            Import Folder
+          </button>
+
+          <button className="run-btn secondary" onClick={importRepo} disabled={running || importing}>
+            Import Bundle from Repo
+          </button>
         </div>
 
-        <div className="card">
-          <h2>Imported Overlay Files</h2>
-          <div className="mono-block">
-            {!bundleSummary ? "-" : [
-              "# policy",
-              ...(bundleSummary?.files?.policy?.length ? bundleSummary.files.policy : ["-"]),
-              "# schema",
-              ...(bundleSummary?.files?.schema?.length ? bundleSummary.files.schema : ["-"])
-            ].join("\n")}
+        {importError ? <div className="notice bad-notice">{explainError(importError)}</div> : null}
+
+        {hasImportedBundle ? (
+          <div className="notice ok-notice">
+            Source ready: {bundleSummary?.manifest?.contract_key || "Contract bundle"} / {bundleSummary?.manifest?.version_label || bundleSummary?.version?.version_label || "version"}
           </div>
-        </div>
-      </section>
+        ) : (
+          <div className="notice muted-notice">No source imported yet.</div>
+        )}
+      </div>
     );
   }
 
-  function ArtifactCards() {
+  function BuildCard() {
     return (
-      <section className="panel grid-two">
-        <div className="card">
-          <h2>Latest Release</h2>
-          <div className="mono-block">{artifacts.release || "-"}</div>
-          <button className="small-btn" onClick={() => openPath(artifacts.release)} disabled={!artifacts.release}>Open Release Folder</button>
+      <div className="card hero-card">
+        <h2>Build package</h2>
+        <p className="plain-text">
+          Run the local deterministic engine to inspect, build, verify, and export the contract package.
+        </p>
 
-          <h2 style={{ marginTop: "16px" }}>SHA256SUMS</h2>
-          <div className="mono-block">{artifacts.shaPath || "-"}</div>
-          <div className="mono-block">{artifacts.shaHash || "-"}</div>
+        <button className="big-action" onClick={runPipeline} disabled={running || importing}>
+          {running ? "Building..." : "Build Contract Package"}
+        </button>
+
+        <div className={`package-state ${hasPackage ? "ready" : running ? "running" : ""}`}>
+          {pipelineState}
         </div>
 
-        <div className="card">
-          <h2>Latest Export</h2>
-          <div className="mono-block">{artifacts.exportDir || "-"}</div>
-          <button className="small-btn" onClick={() => openPath(artifacts.exportDir)} disabled={!artifacts.exportDir}>Open Export Folder</button>
-
-          <h2 style={{ marginTop: "16px" }}>Export Receipt</h2>
-          <div className="mono-block">{artifacts.receipt || "-"}</div>
-          <div className="mono-block">{artifacts.receiptHash || "-"}</div>
-        </div>
-      </section>
+        <StepTracker />
+      </div>
     );
   }
 
-  function PipelineTab() {
+  function ResultCard() {
+    return (
+      <div className="card">
+        <h2>Review result</h2>
+
+        {hasPackage ? (
+          <>
+            <div className="result-success">Package created successfully.</div>
+
+            <div className="simple-artifact">
+              <span>Export folder</span>
+              <strong>{artifacts.exportDir}</strong>
+            </div>
+
+            <div className="simple-artifact">
+              <span>Receipt hash</span>
+              <strong>{artifacts.receiptHash}</strong>
+            </div>
+
+            <div className="button-row">
+              <button className="run-btn secondary" onClick={() => openPath(artifacts.exportDir)}>
+                Open Export Folder
+              </button>
+
+              <button className="run-btn secondary" onClick={createUploadBundle}>
+                Create Upload Bundle
+              </button>
+            </div>
+
+            {uploadBundle ? (
+              <div className="notice ok-notice">
+                Upload bundle ready: {uploadBundle.zipPath}
+              </div>
+            ) : null}
+
+            {uploadError ? (
+              <div className="notice bad-notice">{explainError(uploadError)}</div>
+            ) : null}
+          </>
+        ) : (
+          <div className="notice muted-notice">
+            Build a package to see the export folder and upload bundle here.
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  function BuildTab() {
     return (
       <>
-        <section className="panel grid-two">
-          <div className="card">
-            <h2>Inputs</h2>
-
-            <label className="field">
-              <span>Repo Root</span>
-              <input value={repoRoot} onChange={(e) => setRepoRoot(e.target.value)} disabled={running || importing} />
-            </label>
-
-            <label className="field">
-              <span>Workspace</span>
-              <input value={workspace} onChange={(e) => setWorkspace(e.target.value)} disabled={running || importing} />
-            </label>
-          </div>
-
-          <StatusCard />
+        <section className="panel workflow-grid">
+          <WorkflowStep
+            number="1"
+            title="Choose source"
+            text={hasImportedBundle ? "Source imported" : "Import a zip, folder, or bundle-ready repo"}
+            done={hasImportedBundle}
+          />
+          <WorkflowStep
+            number="2"
+            title="Build package"
+            text={hasPackage ? "Build completed" : "Run the local engine"}
+            done={hasPackage}
+          />
+          <WorkflowStep
+            number="3"
+            title="Review result"
+            text={uploadBundle ? "Upload bundle ready" : "Create export/upload package"}
+            done={!!uploadBundle}
+          />
         </section>
 
-        <section className="panel">
-          <StepTracker />
-        </section>
-
-        <section className="panel grid-two">
-          <div className="card">
-            <h2>Import Zip Bundle</h2>
-            <label className="run-btn" style={{ display: "inline-flex", alignItems: "center" }}>
-              {importing ? "Importing..." : "Import Bundle Zip"}
-              <input ref={fileRef} type="file" accept=".zip" style={{ display: "none" }} disabled={importing || running} onChange={(e) => importBundle(e.target.files?.[0] || null)} />
-            </label>
-          </div>
-
-          <div className="card">
-            <h2>Import Folder / Repo</h2>
-
-            <label className="field">
-              <span>Folder Bundle Path</span>
-              <input value={folderPath} onChange={(e) => setFolderPath(e.target.value)} disabled={running || importing} />
-            </label>
-            <button className="run-btn" onClick={importFolder} disabled={running || importing}>Import Folder</button>
-
-            <label className="field" style={{ marginTop: "14px" }}>
-              <span>Repo Path</span>
-              <input value={repoImportPath} onChange={(e) => setRepoImportPath(e.target.value)} disabled={running || importing} />
-            </label>
-            <button className="run-btn" onClick={importRepo} disabled={running || importing}>Import Repo</button>
-          </div>
-        </section>
-
-        <ImportedSummaryCards />
-        <ArtifactCards />
-
-        <section className="panel">
-          <div className="card">
-            <h2>Live Output</h2>
-            <pre className="console">{log || "No output yet."}</pre>
-          </div>
+        <section className="panel grid-three">
+          <SourceCard />
+          <BuildCard />
+          <ResultCard />
         </section>
       </>
     );
   }
 
-  function WorkspaceTab() {
+  function FilesTab() {
     return (
       <>
         <section className="panel grid-two">
           <div className="card">
-            <h2>Workspace Paths</h2>
-            <div className="mono-block">repo_root: {repoRoot}</div>
-            <button className="small-btn" onClick={() => openPath(repoRoot)}>Open Repo Root</button>
+            <h2>Source paths</h2>
 
-            <div className="mono-block" style={{ marginTop: "12px" }}>workspace: {workspace}</div>
-            <button className="small-btn" onClick={() => openPath(workspace)}>Open Workspace</button>
+            <label className="field">
+              <span>Folder bundle path</span>
+              <input value={folderPath} onChange={(e) => setFolderPath(e.target.value)} disabled={running || importing} />
+            </label>
 
-            <div className="mono-block" style={{ marginTop: "12px" }}>input_contract: {importedRoot}</div>
-            <button className="small-btn" onClick={() => openPath(importedRoot)}>Open Input Contract</button>
+            <label className="field">
+              <span>Repo path</span>
+              <input value={repoImportPath} onChange={(e) => setRepoImportPath(e.target.value)} disabled={running || importing} />
+            </label>
+
+            <div className="button-row">
+              <button className="run-btn secondary" onClick={() => openPath(folderPath)}>Open Folder Source</button>
+              <button className="run-btn secondary" onClick={() => openPath(repoImportPath)}>Open Repo Source</button>
+            </div>
           </div>
 
-          <StatusCard />
+          <div className="card">
+            <h2>Workspace</h2>
+            <div className="simple-artifact"><span>Input</span><strong>{importedRoot}</strong></div>
+            <div className="simple-artifact"><span>Output</span><strong>{outputRoot}</strong></div>
+            <div className="button-row">
+              <button className="run-btn secondary" onClick={() => openPath(importedRoot)}>Open Input</button>
+              <button className="run-btn secondary" onClick={() => openPath(outputRoot)}>Open Output</button>
+            </div>
+          </div>
         </section>
-
-        <ImportedSummaryCards />
 
         <section className="panel grid-two">
           <div className="card">
-            <h2>Workspace Output Roots</h2>
-            <div className="mono-block">output: {outputRoot}</div>
-            <button className="small-btn" onClick={() => openPath(outputRoot)}>Open Output Root</button>
-
-            <div className="mono-block" style={{ marginTop: "12px" }}>releases: {releasesRoot}</div>
-            <button className="small-btn" onClick={() => openPath(releasesRoot)}>Open Releases Root</button>
-
-            <div className="mono-block" style={{ marginTop: "12px" }}>exports: {exportsRoot}</div>
-            <button className="small-btn" onClick={() => openPath(exportsRoot)}>Open Exports Root</button>
+            <h2>Latest release</h2>
+            <div className="mono-block">{artifacts.release || "-"}</div>
+            <button className="small-btn" onClick={() => openPath(artifacts.release)} disabled={!artifacts.release}>Open Release Folder</button>
           </div>
 
           <div className="card">
-            <h2>Current Import Sources</h2>
-            <div className="mono-block">folder_bundle_path: {folderPath}</div>
-            <div className="mono-block" style={{ marginTop: "12px" }}>repo_import_path: {repoImportPath}</div>
+            <h2>Latest export</h2>
+            <div className="mono-block">{artifacts.exportDir || "-"}</div>
+            <button className="small-btn" onClick={() => openPath(artifacts.exportDir)} disabled={!artifacts.exportDir}>Open Export Folder</button>
           </div>
         </section>
       </>
@@ -466,38 +553,40 @@ export default function App() {
   function EvidenceTab() {
     return (
       <>
-        <ArtifactCards />
-
         <section className="panel grid-two">
           <div className="card">
-            <h2>Verification Evidence</h2>
+            <h2>Human summary</h2>
             <div className="mono-block">
               {[
-                "pipeline_state: " + status,
-                "inspect: " + stepStatus(log, "inspect").toUpperCase(),
-                "build: " + stepStatus(log, "build").toUpperCase(),
-                "verify: " + stepStatus(log, "verify").toUpperCase(),
-                "export: " + stepStatus(log, "export").toUpperCase(),
-                "full_green: " + String(log.includes("WORKBENCH_FULL_PIPELINE_GREEN"))
+                "state: " + pipelineState,
+                "contract: " + (bundleSummary?.manifest?.contract_key || "-"),
+                "version: " + (bundleSummary?.manifest?.version_label || bundleSummary?.version?.version_label || "-"),
+                "export_ready: " + String(hasPackage),
+                "upload_bundle_ready: " + String(!!uploadBundle)
               ].join("\n")}
             </div>
           </div>
 
           <div className="card">
-            <h2>Receipt Summary</h2>
+            <h2>Receipt</h2>
             <div className="mono-block">
               {[
                 "receipt_path: " + (artifacts.receipt || "-"),
                 "receipt_sha256: " + (artifacts.receiptHash || "-"),
                 "sha256sums_path: " + (artifacts.shaPath || "-"),
-                "sha256sums_sha256: " + (artifacts.shaHash || "-")
+                "sha256sums_sha256: " + (artifacts.shaHash || "-"),
+                "upload_bundle: " + (uploadBundle?.zipPath || "-"),
+                "upload_bundle_sha256: " + (uploadBundle?.zipSha256 || "-")
               ].join("\n")}
             </div>
           </div>
         </section>
 
         <section className="panel">
-          <StepTracker />
+          <div className="card">
+            <h2>Technical log</h2>
+            <pre className="console">{log || "No output yet."}</pre>
+          </div>
         </section>
       </>
     );
@@ -508,10 +597,10 @@ export default function App() {
       <>
         <section className="panel grid-two">
           <div className="card">
-            <h2>Local Settings</h2>
+            <h2>Local paths</h2>
 
             <label className="field">
-              <span>Repo Root</span>
+              <span>Repo root</span>
               <input value={repoRoot} onChange={(e) => setRepoRoot(e.target.value)} disabled={running || importing} />
             </label>
 
@@ -519,38 +608,30 @@ export default function App() {
               <span>Workspace</span>
               <input value={workspace} onChange={(e) => setWorkspace(e.target.value)} disabled={running || importing} />
             </label>
-
-            <label className="field">
-              <span>Folder Bundle Path</span>
-              <input value={folderPath} onChange={(e) => setFolderPath(e.target.value)} disabled={running || importing} />
-            </label>
-
-            <label className="field">
-              <span>Repo Import Path</span>
-              <input value={repoImportPath} onChange={(e) => setRepoImportPath(e.target.value)} disabled={running || importing} />
-            </label>
           </div>
 
           <div className="card">
-            <h2>Runtime Ports</h2>
+            <h2>Runtime</h2>
             <div className="mono-block">
               {[
+                "mode: local",
+                "public_hosting: disabled",
                 "ui_dev_port: 5174",
                 "local_bridge_port: 5175",
-                "public_hosting: disabled",
-                "desktop_ready: true"
+                "open_path_status: " + (openStatus || "-")
               ].join("\n")}
             </div>
 
-            <h2 style={{ marginTop: "16px" }}>Reset Local UI State</h2>
-            <button className="run-btn" onClick={() => {
+            <button className="run-btn danger" onClick={() => {
               localStorage.removeItem(STORAGE_KEY);
               setLog("");
               setImportError("");
               setImportToken("");
               setBundleSummary(null);
               setOpenStatus("");
-              setActiveTab("Pipeline");
+              setUploadBundle(null);
+              setUploadError("");
+              setActiveTab("Build");
             }}>
               Reset UI State
             </button>
@@ -565,8 +646,9 @@ export default function App() {
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-title">Contract Registry</div>
-          <div className="brand-subtitle">Workbench v0.1.2 Local</div>
+          <div className="brand-subtitle">Workbench Local</div>
         </div>
+
         <nav className="nav">
           {tabs.map((tab) => (
             <button
@@ -585,22 +667,16 @@ export default function App() {
           <div>
             <h1>{activeTab}</h1>
             <p>
-              {activeTab === "Pipeline" && "Local operator dashboard over the deterministic engine."}
-              {activeTab === "Workspace" && "Workspace paths, import state, and local artifact roots."}
-              {activeTab === "Evidence" && "Release, export, receipt, and verification evidence."}
-              {activeTab === "Settings" && "Local-only settings for paths, ports, and UI state."}
+              {activeTab === "Build" && "Import a source, build a package, and prepare it for upload."}
+              {activeTab === "Files" && "Open source, workspace, release, and export folders."}
+              {activeTab === "Evidence" && "Review receipts, hashes, and the technical log."}
+              {activeTab === "Settings" && "Local-only paths and runtime settings."}
             </p>
           </div>
-
-          {activeTab === "Pipeline" && (
-            <button className="run-btn" onClick={runPipeline} disabled={running || importing}>
-              {running ? "Running..." : "Run Pipeline"}
-            </button>
-          )}
         </header>
 
-        {activeTab === "Pipeline" && <PipelineTab />}
-        {activeTab === "Workspace" && <WorkspaceTab />}
+        {activeTab === "Build" && <BuildTab />}
+        {activeTab === "Files" && <FilesTab />}
         {activeTab === "Evidence" && <EvidenceTab />}
         {activeTab === "Settings" && <SettingsTab />}
       </main>
