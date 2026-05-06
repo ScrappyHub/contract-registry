@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 function valueAfter(label, text) {
   const line = text.split(/\r?\n/).find((x) => x.startsWith(label));
@@ -12,24 +12,62 @@ function stepStatus(log, step) {
 }
 
 const tabs = ["Pipeline", "Workspace", "Evidence", "Settings"];
+const STORAGE_KEY = "contract_registry_workbench_v012_state";
+
+function loadSavedState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState("Pipeline");
+  const saved = useMemo(() => loadSavedState(), []);
 
-  const [repoRoot, setRepoRoot] = useState("C:\\dev\\contract-registry");
-  const [workspace, setWorkspace] = useState("C:\\dev\\contract-registry\\workbench\\workspace");
-  const [folderPath, setFolderPath] = useState("C:\\dev\\contract-registry\\workbench\\workspace\\contract_bundle_unzipped");
-  const [repoImportPath, setRepoImportPath] = useState("C:\\dev\\contract-registry");
+  const [activeTab, setActiveTab] = useState(saved.activeTab || "Pipeline");
 
-  const [log, setLog] = useState("");
+  const [repoRoot, setRepoRoot] = useState(saved.repoRoot || "C:\\dev\\contract-registry");
+  const [workspace, setWorkspace] = useState(saved.workspace || "C:\\dev\\contract-registry\\workbench\\workspace");
+  const [folderPath, setFolderPath] = useState(saved.folderPath || "C:\\dev\\contract-registry\\workbench\\workspace\\contract_bundle_unzipped");
+  const [repoImportPath, setRepoImportPath] = useState(saved.repoImportPath || "C:\\dev\\contract-registry");
+
+  const [log, setLog] = useState(saved.log || "");
   const [running, setRunning] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [importError, setImportError] = useState("");
-  const [importToken, setImportToken] = useState("");
-  const [bundleSummary, setBundleSummary] = useState(null);
+  const [importError, setImportError] = useState(saved.importError || "");
+  const [importToken, setImportToken] = useState(saved.importToken || "");
+  const [bundleSummary, setBundleSummary] = useState(saved.bundleSummary || null);
   const [openStatus, setOpenStatus] = useState("");
 
   const fileRef = useRef(null);
+
+  useEffect(() => {
+    const snapshot = {
+      activeTab,
+      repoRoot,
+      workspace,
+      folderPath,
+      repoImportPath,
+      log,
+      importError,
+      importToken,
+      bundleSummary
+    };
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+  }, [
+    activeTab,
+    repoRoot,
+    workspace,
+    folderPath,
+    repoImportPath,
+    log,
+    importError,
+    importToken,
+    bundleSummary
+  ]);
 
   const status = useMemo(() => {
     if (running) return "RUNNING";
@@ -506,11 +544,13 @@ export default function App() {
 
             <h2 style={{ marginTop: "16px" }}>Reset Local UI State</h2>
             <button className="run-btn" onClick={() => {
+              localStorage.removeItem(STORAGE_KEY);
               setLog("");
               setImportError("");
               setImportToken("");
               setBundleSummary(null);
               setOpenStatus("");
+              setActiveTab("Pipeline");
             }}>
               Reset UI State
             </button>
