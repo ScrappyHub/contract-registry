@@ -460,3 +460,47 @@ pre {
 .action-row button {
   margin: 0;
 }
+
+.result-summary {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.result-summary div {
+  background: #111827;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 12px;
+  display: grid;
+  gap: 5px;
+}
+
+.result-summary span {
+  color: #cbd5e1;
+  font-size: 12px;
+}
+
+.result-summary strong {
+  color: #86efac;
+  overflow-wrap: anywhere;
+}
+
+.upload-ready {
+  margin-top: 14px;
+  background: #052e22;
+  color: #86efac;
+  border-radius: 14px;
+  padding: 14px;
+  display: grid;
+  gap: 8px;
+}
+
+.upload-ready span {
+  color: #bbf7d0;
+}
+
+.upload-ready code {
+  background: rgba(0,0,0,0.25);
+  margin: 0;
+}

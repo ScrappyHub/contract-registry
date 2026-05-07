@@ -87,6 +87,23 @@ export default function App() {
   const receiptHash = after("EVIDENCE_EXPORT_RECEIPT_SHA256:", log);
   const ready = log.includes("WORKBENCH_FULL_PIPELINE_GREEN");
   const projectSummary = inventorySummary(exportFiles);
+  const manifestText = exportFiles?.["manifest.json"] || "";
+  let manifestSummary = null;
+  try {
+    manifestSummary = manifestText ? JSON.parse(manifestText) : null;
+  } catch {
+    manifestSummary = null;
+  }
+
+  const displayedContractKey =
+    manifestSummary?.contract_key ||
+    source?.contractKey ||
+    "-";
+
+  const displayedFileCount =
+    manifestSummary?.source_file_count ||
+    projectSummary?.fileCount ||
+    "-";
 
   useEffect(() => {
     checkBridge();
@@ -569,6 +586,28 @@ export default function App() {
 
             {ready ? (
               <>
+                <div className="result-summary">
+                  <div>
+                    <span>Package</span>
+                    <strong>{displayedContractKey}</strong>
+                  </div>
+
+                  <div>
+                    <span>Files scanned</span>
+                    <strong>{displayedFileCount}</strong>
+                  </div>
+
+                  <div>
+                    <span>Verification</span>
+                    <strong>{ready ? "Passed" : "-"}</strong>
+                  </div>
+
+                  <div>
+                    <span>Upload bundle</span>
+                    <strong>{upload?.zipPath ? "Ready" : "Not created"}</strong>
+                  </div>
+                </div>
+
                 <div className="notice good">
                   <b>Package created</b>
                   <span>Ready for review or upload packaging.</span>
@@ -583,10 +622,11 @@ export default function App() {
                 </div>
 
                 {upload && (
-                  <div className="notice good">
+                  <div className="upload-ready">
                     <b>Upload bundle ready</b>
-                    <small>{upload.zipPath}</small>
-                    <small>{upload.zipSha256}</small>
+                    <span>This is the file you would upload or submit to the hosted registry.</span>
+                    <code>{upload.zipPath}</code>
+                    <code>{upload.zipSha256}</code>
                   </div>
                 )}
               </>
@@ -628,12 +668,12 @@ export default function App() {
 
                   <div>
                     <span>Top extensions</span>
-                    <p>{projectSummary.topExt.map(([k,v]) => `${k} ${v}`).join(" Â· ") || "-"}</p>
+                    <p>{projectSummary.topExt.map(([k,v]) => `${k} ${v}`).join(" Ã‚Â· ") || "-"}</p>
                   </div>
 
                   <div>
                     <span>Top folders</span>
-                    <p>{projectSummary.topFolders.map(([k,v]) => `${k} ${v}`).join(" Â· ") || "-"}</p>
+                    <p>{projectSummary.topFolders.map(([k,v]) => `${k} ${v}`).join(" Ã‚Â· ") || "-"}</p>
                   </div>
                 </div>
               )}
