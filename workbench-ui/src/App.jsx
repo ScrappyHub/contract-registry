@@ -75,6 +75,7 @@ export default function App() {
   const [exportFiles, setExportFiles] = useState(null);
   const [selectedExportFile, setSelectedExportFile] = useState("");
   const [openNotice, setOpenNotice] = useState("");
+  const [copyNotice, setCopyNotice] = useState("");
 
   const zipRef = useRef(null);
   const bundleFolderRef = useRef(null);
@@ -322,6 +323,23 @@ export default function App() {
     }
   }
 
+  async function copyText(label, value) {
+    if (!value) {
+      setError(label + " copy failed: nothing to copy yet.");
+      setStatus("Needs attention");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopyNotice(label + " copied.");
+      setError("");
+    } catch {
+      setError(label + " copy failed. Select and copy it manually from the Evidence section.");
+      setStatus("Needs attention");
+    }
+  }
+
   async function readExportFiles() {
     if (!exportDir) {
       setError("Preview Export Files failed: build a package first.");
@@ -462,6 +480,7 @@ export default function App() {
 
         {error && <div className="error">{error}</div>}
         {openNotice && <div className="success top-notice">{openNotice}</div>}
+        {copyNotice && <div className="success top-notice">{copyNotice}</div>}
 
         <section className="cards">
           <div className="card">
@@ -524,13 +543,17 @@ export default function App() {
             <h3>Build package</h3>
             <p>Runs inspect, build, verify, and export using the local engine.</p>
 
-            <button className="primary" onClick={buildPackage} disabled={busy || !bridgeOk || !source}>
-              {busy ? "Working..." : "Build Package"}
-            </button>
+            <div className="action-row stack-actions">
+              <button className="primary" onClick={buildPackage} disabled={busy || !bridgeOk || !source}>
+                {busy ? "Working..." : "Build Package"}
+              </button>
 
-            <button className="run-all" onClick={runAll} disabled={busy || !bridgeOk || !source}>
-              Run All: Build + Create Upload Bundle
-            </button>
+              <button className="run-all" onClick={runAll} disabled={busy || !bridgeOk || !source}>
+                Run All
+              </button>
+            </div>
+
+            <p className="hint">Run All builds, verifies, exports, and creates the upload bundle.</p>
 
             <div className="steps">
               <span className={done("inspect", log) ? "done" : ""}>Inspect</span>
@@ -555,6 +578,8 @@ export default function App() {
                   <button onClick={() => openPath(exportDir)}>Open Export Folder</button>
                   <button onClick={readExportFiles}>Preview Package</button>
                   <button onClick={createUploadBundle} disabled={busy}>Create Upload Bundle</button>
+                  <button onClick={() => copyText("Upload bundle path", upload?.zipPath)}>Copy Upload Path</button>
+                  <button onClick={() => copyText("Receipt hash", receiptHash)}>Copy Receipt Hash</button>
                 </div>
 
                 {upload && (
@@ -603,12 +628,12 @@ export default function App() {
 
                   <div>
                     <span>Top extensions</span>
-                    <p>{projectSummary.topExt.map(([k,v]) => `${k} ${v}`).join(" · ") || "-"}</p>
+                    <p>{projectSummary.topExt.map(([k,v]) => `${k} ${v}`).join(" Â· ") || "-"}</p>
                   </div>
 
                   <div>
                     <span>Top folders</span>
-                    <p>{projectSummary.topFolders.map(([k,v]) => `${k} ${v}`).join(" · ") || "-"}</p>
+                    <p>{projectSummary.topFolders.map(([k,v]) => `${k} ${v}`).join(" Â· ") || "-"}</p>
                   </div>
                 </div>
               )}
@@ -637,12 +662,12 @@ export default function App() {
 
         <section className="advanced">
           <button onClick={() => setShowTech(!showTech)}>
-            {showTech ? "Hide technical details" : "Show technical details"}
+            {showTech ? "Hide verification log" : "Show verification log"}
           </button>
 
           {showTech && (
             <div className="details">
-              <h3>Evidence</h3>
+              <h3>Verification Evidence</h3>
               <code>Release: {releaseDir || "-"}</code>
               <code>Export: {exportDir || "-"}</code>
               <code>Receipt: {receipt || "-"}</code>
