@@ -71,6 +71,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [upload, setUpload] = useState(null);
   const [showTech, setShowTech] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const [exportFiles, setExportFiles] = useState(null);
   const [selectedExportFile, setSelectedExportFile] = useState("");
   const [openNotice, setOpenNotice] = useState("");
@@ -340,7 +341,7 @@ export default function App() {
 
       setExportFiles(data.files);
       setSelectedExportFile(Object.keys(data.files || {})[0] || "");
-      setShowTech(true);
+      setShowPreview(true);
       setError("");
     } catch (e) {
       setError(friendly("Preview Export Files", e));
@@ -570,6 +571,70 @@ export default function App() {
           </div>
         </section>
 
+        {showPreview && exportFiles && (
+          <section className="preview-panel">
+            <div className="preview-head">
+              <h3>Package Preview</h3>
+              <button onClick={() => setShowPreview(false)}>Close Preview</button>
+            </div>
+
+            <div className="package-explorer">
+              <div className="package-summary">
+                <div>
+                  <span>Files</span>
+                  <strong>{Object.keys(exportFiles).length}</strong>
+                </div>
+                <div>
+                  <span>Export</span>
+                  <strong>{exportDir ? "Ready" : "-"}</strong>
+                </div>
+                <div>
+                  <span>Receipt</span>
+                  <strong>{receiptHash ? "Verified" : "-"}</strong>
+                </div>
+              </div>
+
+              {projectSummary && (
+                <div className="project-summary">
+                  <div>
+                    <span>Scanned files</span>
+                    <strong>{projectSummary.fileCount}</strong>
+                  </div>
+
+                  <div>
+                    <span>Top extensions</span>
+                    <p>{projectSummary.topExt.map(([k,v]) => `${k} ${v}`).join(" · ") || "-"}</p>
+                  </div>
+
+                  <div>
+                    <span>Top folders</span>
+                    <p>{projectSummary.topFolders.map(([k,v]) => `${k} ${v}`).join(" · ") || "-"}</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="explorer-grid">
+                <div className="file-list">
+                  {Object.keys(exportFiles).map((name) => (
+                    <button
+                      key={name}
+                      className={selectedExportFile === name ? "file-tab active" : "file-tab"}
+                      onClick={() => setSelectedExportFile(name)}
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="file-reader">
+                  <h4>{selectedExportFile || "No file selected"}</h4>
+                  <pre>{selectedExportFile ? exportFiles[selectedExportFile] : "Select a file."}</pre>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
         <section className="advanced">
           <button onClick={() => setShowTech(!showTech)}>
             {showTech ? "Hide technical details" : "Show technical details"}
@@ -582,66 +647,6 @@ export default function App() {
               <code>Export: {exportDir || "-"}</code>
               <code>Receipt: {receipt || "-"}</code>
               <code>Receipt SHA-256: {receiptHash || "-"}</code>
-
-              {exportFiles && (
-                <div className="package-explorer">
-                  <h3>Package Explorer</h3>
-
-                  <div className="package-summary">
-                    <div>
-                      <span>Files</span>
-                      <strong>{Object.keys(exportFiles).length}</strong>
-                    </div>
-                    <div>
-                      <span>Export</span>
-                      <strong>{exportDir ? "Ready" : "-"}</strong>
-                    </div>
-                    <div>
-                      <span>Receipt</span>
-                      <strong>{receiptHash ? "Verified" : "-"}</strong>
-                    </div>
-                  </div>
-
-                  {projectSummary && (
-                    <div className="project-summary">
-                      <div>
-                        <span>Scanned files</span>
-                        <strong>{projectSummary.fileCount}</strong>
-                      </div>
-
-                      <div>
-                        <span>Top extensions</span>
-                        <p>{projectSummary.topExt.map(([k,v]) => `${k} ${v}`).join(" · ") || "-"}</p>
-                      </div>
-
-                      <div>
-                        <span>Top folders</span>
-                        <p>{projectSummary.topFolders.map(([k,v]) => `${k} ${v}`).join(" · ") || "-"}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="explorer-grid">
-                    <div className="file-list">
-                      {Object.keys(exportFiles).map((name) => (
-                        <button
-                          key={name}
-                          className={selectedExportFile === name ? "file-tab active" : "file-tab"}
-                          onClick={() => setSelectedExportFile(name)}
-                        >
-                          {name}
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className="file-reader">
-                      <h4>{selectedExportFile || "No file selected"}</h4>
-                      <pre>{selectedExportFile ? exportFiles[selectedExportFile] : "Select a file."}</pre>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               <h3>Technical log</h3>
               <pre>{log || "No log yet."}</pre>
             </div>
