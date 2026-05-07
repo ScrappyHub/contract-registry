@@ -317,8 +317,7 @@ function createBundleFromAnyRepo(repoPath, workspace) {
     overlay_schema_count: 0
   });
 
-  writeJson(path.join(inputRoot, "source_inventory.json",
-      "repo_intelligence.json"), {
+  writeJson(path.join(inputRoot, "source_inventory.json"), {
     source_path: repoPath,
     file_count: files.length,
     files
@@ -542,8 +541,7 @@ const rootName = firstPath.includes("/") ? firstPath.split("/")[0] : "uploaded.r
     overlay_schema_count: 0
   });
 
-  writeJson(path.join(inputRoot, "source_inventory.json",
-      "repo_intelligence.json"), {
+  writeJson(path.join(inputRoot, "source_inventory.json"), {
     file_count: kept.length,
     files: kept
   });
