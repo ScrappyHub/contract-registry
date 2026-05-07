@@ -317,7 +317,8 @@ function createBundleFromAnyRepo(repoPath, workspace) {
     overlay_schema_count: 0
   });
 
-  writeJson(path.join(inputRoot, "source_inventory.json"), {
+  writeJson(path.join(inputRoot, "source_inventory.json",
+      "repo_intelligence.json"), {
     source_path: repoPath,
     file_count: files.length,
     files
@@ -373,6 +374,97 @@ function writeUploadedFilesToTemp(files, tempRoot) {
     ensureDir(path.dirname(outPath));
     fs.writeFileSync(outPath, file.buffer);
   }
+}
+
+function detectRepoIntelligence(kept) {
+  const paths = kept.map(x => x.path || "");
+  const lower = paths.map(x => x.toLowerCase());
+
+  function anyEnds(suffixes) {
+    return lower.filter(p => suffixes.some(s => p.endsWith(s)));
+  }
+
+  function anyIncludes(parts) {
+    return lower.filter(p => parts.some(s => p.includes(s)));
+  }
+
+  const languages = [];
+  if (anyEnds([".js", ".jsx", ".ts", ".tsx"]).length) languages.push("javascript/typescript");
+  if (anyEnds([".ps1", ".psm1", ".psd1"]).length) languages.push("powershell");
+  if (anyEnds([".py"]).length) languages.push("python");
+  if (anyEnds([".cs"]).length) languages.push("csharp");
+  if (anyEnds([".rs"]).length) languages.push("rust");
+  if (anyEnds([".go"]).length) languages.push("go");
+  if (anyEnds([".java"]).length) languages.push("java");
+  if (anyEnds([".sql"]).length) languages.push("sql");
+
+  const packageManagers = [];
+  if (lower.includes("package.json")) packageManagers.push("npm");
+  if (lower.includes("pnpm-lock.yaml")) packageManagers.push("pnpm");
+  if (lower.includes("yarn.lock")) packageManagers.push("yarn");
+  if (lower.includes("requirements.txt") || lower.includes("pyproject.toml")) packageManagers.push("python");
+  if (lower.includes("cargo.toml")) packageManagers.push("cargo");
+  if (lower.includes("go.mod")) packageManagers.push("go modules");
+  if (lower.includes("pom.xml") || lower.includes("build.gradle")) packageManagers.push("jvm");
+
+  const apiCandidates = paths.filter(p => {
+    const l = p.toLowerCase();
+    return (
+      l.endsWith("server.js") ||
+      l.endsWith("server.ts") ||
+      l.includes("/api/") ||
+      l.includes("\\api\\") ||
+      l.includes("routes") ||
+      l.includes("controller") ||
+      l.includes("endpoint")
+    );
+  }).slice(0, 50);
+
+  const schemaCandidates = paths.filter(p => {
+    const l = p.toLowerCase();
+    return (
+      l.includes("schema") ||
+      l.endsWith(".schema.json") ||
+      l.includes("/schemas/") ||
+      l.includes("\\schemas\\") ||
+      l.endsWith(".sql")
+    );
+  }).slice(0, 50);
+
+  const licenseFiles = paths.filter(p => {
+    const n = p.toLowerCase().split("/").pop();
+    return n === "license" || n === "license.md" || n === "license.txt" || n === "copying";
+  });
+
+  const docs = paths.filter(p => {
+    const n = p.toLowerCase().split("/").pop();
+    return n === "readme.md" || n === "readme.txt" || p.toLowerCase().startsWith("docs/");
+  }).slice(0, 50);
+
+  const envExamples = paths.filter(p => {
+    const n = p.toLowerCase().split("/").pop();
+    return n === ".env.example" || n === "env.example" || n.endsWith(".env.example");
+  });
+
+  const riskNotes = [];
+  if (!licenseFiles.length) riskNotes.push("No license file detected.");
+  if (!docs.length) riskNotes.push("No README/docs detected.");
+  if (envExamples.length) riskNotes.push("Environment template detected; review secrets handling.");
+  if (apiCandidates.length) riskNotes.push("API or server surface candidates detected.");
+  if (schemaCandidates.length) riskNotes.push("Schema/database candidates detected.");
+
+  return {
+    schema: "contract_registry.repo_intelligence.v1",
+    generated_utc: new Date().toISOString(),
+    languages,
+    package_managers: packageManagers,
+    api_candidates: apiCandidates,
+    schema_candidates: schemaCandidates,
+    license_files: licenseFiles,
+    docs,
+    env_examples: envExamples,
+    risk_notes: riskNotes
+  };
 }
 
 function createBundleFromUploadedRepo(files, workspace) {
@@ -450,10 +542,14 @@ const rootName = firstPath.includes("/") ? firstPath.split("/")[0] : "uploaded.r
     overlay_schema_count: 0
   });
 
-  writeJson(path.join(inputRoot, "source_inventory.json"), {
+  writeJson(path.join(inputRoot, "source_inventory.json",
+      "repo_intelligence.json"), {
     file_count: kept.length,
     files: kept
   });
+
+  const intelligence = detectRepoIntelligence(kept);
+  writeJson(path.join(inputRoot, "repo_intelligence.json"), intelligence);
 
   return {
     ok: true,
@@ -522,7 +618,8 @@ app.post("/api/read-export-files", (req, res) => {
       "overlay_summary.txt",
       "sha256sums.txt",
       "export_receipt.txt",
-      "source_inventory.json"
+      "source_inventory.json",
+      "repo_intelligence.json"
     ];
 
     const files = {};
