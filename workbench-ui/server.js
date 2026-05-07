@@ -468,6 +468,9 @@ function detectRepoIntelligence(kept) {
 
 function createBundleFromUploadedRepo(files, workspace) {
   if (!files || files.length === 0) throw new Error("No repo files selected.");
+  if (files.length > 1200) {
+    throw new Error("Repo upload is too large for browser mode. Use the local desktop/path scanner for large repos.");
+  }
 
   const inputRoot = path.join(workspace, "input", "contract");
   const kept = [];
