@@ -35,6 +35,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [upload, setUpload] = useState(null);
   const [showTech, setShowTech] = useState(false);
+  const [exportFiles, setExportFiles] = useState(null);
   const [openNotice, setOpenNotice] = useState("");
 
   const zipRef = useRef(null);
@@ -282,6 +283,32 @@ export default function App() {
     }
   }
 
+  async function readExportFiles() {
+    if (!exportDir) {
+      setError("Preview Export Files failed: build a package first.");
+      setStatus("Needs attention");
+      return;
+    }
+
+    try {
+      const res = await fetch(API + "/api/read-export-files", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ exportDir })
+      });
+
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+
+      setExportFiles(data.files);
+      setShowTech(true);
+      setError("");
+    } catch (e) {
+      setError(friendly("Preview Export Files", e));
+      setStatus("Needs attention");
+    }
+  }
+
   async function openPath(targetPath) {
     if (!targetPath) return;
 
@@ -484,7 +511,7 @@ export default function App() {
                   <span>Ready for review or upload packaging.</span>
                 </div>
 
-                <button onClick={() => openPath(exportDir)}>Open Export Folder</button>
+                <button onClick={() => openPath(exportDir)}>Open Export Folder</button><button className="gap-left" onClick={readExportFiles}>Preview Export Files</button>
                 <button className="gap-left" onClick={createUploadBundle} disabled={busy}>Create Upload Bundle</button>
 
                 {upload && (
@@ -513,6 +540,18 @@ export default function App() {
               <code>Export: {exportDir || "-"}</code>
               <code>Receipt: {receipt || "-"}</code>
               <code>Receipt SHA-256: {receiptHash || "-"}</code>
+
+              {exportFiles && (
+                <>
+                  <h3>Export files</h3>
+                  {Object.entries(exportFiles).map(([name, text]) => (
+                    <div className="file-preview" key={name}>
+                      <h4>{name}</h4>
+                      <pre>{text}</pre>
+                    </div>
+                  ))}
+                </>
+              )}
 
               <h3>Log</h3>
               <pre>{log || "No log yet."}</pre>

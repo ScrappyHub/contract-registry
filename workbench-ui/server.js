@@ -4,7 +4,7 @@ import multer from "multer";
 import AdmZip from "adm-zip";
 import fs from "fs";
 import path from "path";
-import { spawn } from "child_process";
+import { spawn, execFile } from "child_process";
 import crypto from "crypto";
 
 const PORT = 5185;
@@ -312,7 +312,9 @@ function createBundleFromAnyRepo(repoPath, workspace) {
     version_label: versionLabel,
     version_no: 1,
     status: "draft",
-    source_digest_sha256: sourceDigest
+    source_digest_sha256: sourceDigest,
+    overlay_policy_count: 0,
+    overlay_schema_count: 0
   });
 
   writeJson(path.join(inputRoot, "source_inventory.json"), {
@@ -385,6 +387,21 @@ function createBundleFromUploadedRepo(files, workspace) {
     if (shouldSkipUploadedRepoFile(rel)) continue;
     if (file.size > 1024 * 1024) continue;
 
+    const lowerRel = rel.toLowerCase();
+    if (
+      lowerRel.endsWith(".pyc") ||
+      lowerRel.endsWith(".pyo") ||
+      lowerRel.endsWith(".dll") ||
+      lowerRel.endsWith(".exe") ||
+      lowerRel.endsWith(".png") ||
+      lowerRel.endsWith(".jpg") ||
+      lowerRel.endsWith(".jpeg") ||
+      lowerRel.endsWith(".gif") ||
+      lowerRel.endsWith(".webp") ||
+      lowerRel.endsWith(".zip") ||
+      lowerRel.includes("__pycache__/")
+    ) continue;
+
     kept.push({
       path: rel,
       bytes: file.size,
@@ -394,7 +411,8 @@ function createBundleFromUploadedRepo(files, workspace) {
 
   kept.sort((a, b) => a.path.localeCompare(b.path));
 
-  const rootName = kept[0]?.path?.split("/")?.[0] || "uploaded.repo";
+  const firstPath = kept[0]?.path || "uploaded.repo";
+const rootName = firstPath.includes("/") ? firstPath.split("/")[0] : "uploaded.repo";
   const safeName = rootName.toLowerCase().replace(/[^a-z0-9]+/g, ".").replace(/^\.+|\.+$/g, "") || "uploaded.repo";
   const contractKey = safeName + ".contract.v1";
   const sourceDigest = crypto.createHash("sha256").update(JSON.stringify(kept)).digest("hex");
@@ -410,7 +428,9 @@ function createBundleFromUploadedRepo(files, workspace) {
     version_label: "repo-upload-v1",
     source_kind: "repo_upload",
     source_file_count: kept.length,
-    source_digest_sha256: sourceDigest
+    source_digest_sha256: sourceDigest,
+    overlay_policy_count: 0,
+    overlay_schema_count: 0
   });
 
   writeJson(path.join(inputRoot, "contract.json"), {
@@ -425,7 +445,9 @@ function createBundleFromUploadedRepo(files, workspace) {
     version_label: "repo-upload-v1",
     version_no: 1,
     status: "draft",
-    source_digest_sha256: sourceDigest
+    source_digest_sha256: sourceDigest,
+    overlay_policy_count: 0,
+    overlay_schema_count: 0
   });
 
   writeJson(path.join(inputRoot, "source_inventory.json"), {
@@ -486,54 +508,88 @@ app.post("/api/import-repo-upload", upload.array("files", 5000), (req, res) => {
     return res.status(400).json({ ok: false, error: err.message });
   }
 });
-app.post("/api/open-path", (req, res) => {
+app.post("/api/read-export-files", (req, res) => {
   try {
-    const targetPath = req.body?.targetPath;
-    if (!targetPath) throw new Error("No path provided.");
-    if (!fs.existsSync(targetPath)) throw new Error("That path does not exist yet.");
+    const exportDir = req.body?.exportDir;
 
-    const psCode = `
-$ErrorActionPreference = "Stop"
-$p = '${String(targetPath).replaceAll("'", "''")}'
-Start-Process -FilePath explorer.exe -ArgumentList @($p)
-Write-Output "OPEN_PATH_OK"
-`;
+    if (!exportDir) throw new Error("No export folder provided.");
+    if (!fs.existsSync(exportDir)) throw new Error("Export folder does not exist.");
 
-    const child = spawn("powershell.exe", [
-      "-NoProfile",
-      "-NonInteractive",
-      "-ExecutionPolicy", "Bypass",
-      "-Command", psCode
-    ], {
-      windowsHide: false
-    });
+    const allowed = [
+      "manifest.json",
+      "contract.json",
+      "version.json",
+      "overlay_summary.txt",
+      "sha256sums.txt",
+      "export_receipt.txt"
+    ];
 
-    let stdout = "";
-    let stderr = "";
+    const files = {};
 
-    child.stdout.on("data", d => stdout += d.toString());
-    child.stderr.on("data", d => stderr += d.toString());
-
-    child.on("close", code => {
-      if (code !== 0 || !stdout.includes("OPEN_PATH_OK")) {
-        return res.status(400).json({
-          ok: false,
-          error: "Explorer launch failed: " + (stderr || stdout || ("exit " + code))
-        });
+    for (const name of allowed) {
+      const p = path.join(exportDir, name);
+      if (fs.existsSync(p) && fs.statSync(p).isFile()) {
+        files[name] = fs.readFileSync(p, "utf8");
       }
+    }
 
-      return res.json({
-        ok: true,
-        token: "OPEN_PATH_OK",
-        targetPath
-      });
+    return res.json({
+      ok: true,
+      exportDir,
+      files
     });
   } catch (err) {
-    return res.status(400).json({ ok: false, error: err.message });
+    return res.status(400).json({
+      ok: false,
+      error: err.message
+    });
   }
 });
+app.post("/api/open-path", async (req, res) => {
+  try {
+    const targetPath = req.body?.targetPath;
 
-app.post("/api/create-upload-bundle", (req, res) => {
+    if (!targetPath) {
+      throw new Error("No path provided.");
+    }
+
+    if (!fs.existsSync(targetPath)) {
+      throw new Error("Target path does not exist.");
+    }
+
+    execFile(
+      "explorer.exe",
+      [targetPath],
+      {
+        windowsHide: false
+      },
+      (err) => {
+        if (err) {
+          console.error("OPEN_FOLDER_ERROR", err);
+
+          return res.status(500).json({
+            ok: false,
+            error: err.message
+          });
+        }
+
+        return res.json({
+          ok: true,
+          token: "OPEN_PATH_OK",
+          targetPath
+        });
+      }
+    );
+
+  } catch (err) {
+    console.error("OPEN_PATH_ROUTE_FAIL", err);
+
+    return res.status(400).json({
+      ok: false,
+      error: err.message
+    });
+  }
+});app.post("/api/create-upload-bundle", (req, res) => {
   try {
     const exportDir = req.body?.exportDir;
     if (!exportDir || !fs.existsSync(exportDir)) throw new Error("No export folder exists yet.");
