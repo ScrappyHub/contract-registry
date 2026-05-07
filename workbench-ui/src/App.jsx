@@ -334,9 +334,11 @@ export default function App() {
               </label>
             </div>
 
-            <div className="path-import">
-              <label>
-                <span>Bundle folder</span>
+            <div className="pick-grid">
+              <label className="pick-card">
+                <span className="pick-title">Bundle folder</span>
+                <span className="pick-text">Choose an unzipped bundle folder</span>
+                <strong>Choose Bundle Folder</strong>
                 <input
                   ref={bundleFolderRef}
                   type="file"
@@ -346,11 +348,11 @@ export default function App() {
                   onChange={(e) => uploadFolderFiles(e.target.files, "/api/import-folder-upload", "Bundle folder import")}
                 />
               </label>
-            </div>
 
-            <div className="path-import">
-              <label>
-                <span>Repo folder</span>
+              <label className="pick-card">
+                <span className="pick-title">Repo folder</span>
+                <span className="pick-text">Scan any local project folder</span>
+                <strong>Choose Repo Folder</strong>
                 <input
                   ref={repoFolderRef}
                   type="file"
@@ -404,7 +406,7 @@ export default function App() {
                 </div>
 
                 <button onClick={() => openPath(exportDir)}>Open Export Folder</button>
-                <button onClick={createUploadBundle} disabled={busy}>Create Upload Bundle</button>
+                <button className="gap-left" onClick={createUploadBundle} disabled={busy}>Create Upload Bundle</button>
 
                 {upload && (
                   <div className="notice good">
