@@ -126,6 +126,9 @@ export default function App() {
     setSourcePath("");
     setUpload(null);
     setLog("");
+    setExportFiles(null);
+    setSelectedExportFile("");
+    setShowPreview(false);
   }
 
   function fail(message) {
@@ -668,12 +671,12 @@ export default function App() {
 
                   <div>
                     <span>Top extensions</span>
-                    <p>{projectSummary.topExt.map(([k,v]) => `${k} ${v}`).join(" Ã‚Â· ") || "-"}</p>
+                    <p>{projectSummary.topExt.map(([k,v]) => `${k} ${v}`).join(" Ãƒâ€šÃ‚Â· ") || "-"}</p>
                   </div>
 
                   <div>
                     <span>Top folders</span>
-                    <p>{projectSummary.topFolders.map(([k,v]) => `${k} ${v}`).join(" Ã‚Â· ") || "-"}</p>
+                    <p>{projectSummary.topFolders.map(([k,v]) => `${k} ${v}`).join(" Ãƒâ€šÃ‚Â· ") || "-"}</p>
                   </div>
                 </div>
               )}
