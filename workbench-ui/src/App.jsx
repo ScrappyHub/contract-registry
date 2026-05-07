@@ -2,16 +2,6 @@ import { useEffect, useRef, useState } from "react";
 
 const API = "http://localhost:5185";
 
-function friendlyFetchError(operation, err) {
-  const message = err?.message || String(err || "Unknown error");
-
-  if (message === "Failed to fetch") {
-    return operation + " failed because the local bridge did not respond. Make sure npm run dev is running and the bridge says WORKBENCH_BRIDGE_READY on port 5185.";
-  }
-
-  return operation + " failed: " + message;
-}
-
 function after(label, text) {
   const line = text.split(/\r?\n/).find((x) => x.startsWith(label));
   return line ? line.slice(label.length).trim() : "";
@@ -21,11 +11,20 @@ function done(step, log) {
   return log.includes("STEP_OK: " + step);
 }
 
+function friendly(operation, err) {
+  const msg = err?.message || String(err || "Unknown error");
+  if (msg === "Failed to fetch") {
+    return operation + " failed because the local bridge did not respond. Make sure npm run dev is running and the bridge is on port 5185.";
+  }
+  return operation + " failed: " + msg;
+}
+
 export default function App() {
   const [repoRoot] = useState("C:\\dev\\contract-registry");
   const [workspace] = useState("C:\\dev\\contract-registry\\workbench\\workspace");
-  const [bundleFolderPath, setBundleFolderPath] = useState("C:\\dev\\contract-registry\\workbench\\workspace\\contract_bundle_unzipped");
-  const [repoScanPath, setRepoScanPath] = useState("C:\\dev\\atlas-update");
+
+  const [bundleFolderPath, setBundleFolderPath] = useState("");
+  const [repoScanPath, setRepoScanPath] = useState("");
 
   const [bridgeOk, setBridgeOk] = useState(false);
   const [source, setSource] = useState(null);
@@ -54,35 +53,40 @@ export default function App() {
       const res = await fetch(API + "/api/health");
       const data = await res.json();
       setBridgeOk(!!data.ok);
+      if (data.ok) setError("");
     } catch (e) {
       setBridgeOk(false);
-      setError(friendlyFetchError("Bridge check", e));
+      setError(friendly("Bridge check", e));
     }
   }
 
+  function clearSource() {
+    setSource(null);
+    setSourcePath("");
+    setUpload(null);
+    setLog("");
+  }
+
   function fail(message) {
+    clearSource();
     setError(message || "Something went wrong.");
     setStatus("Needs attention");
   }
 
-  async function pickFolder() {
-    const res = await fetch(API + "/api/pick-folder", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Choose Contract Registry bundle folder" })
-    });
-
-    const data = await res.json();
-    if (!data.ok) throw new Error(data.error);
-    return data.selectedPath;
+  function setSourceReady(data, pathText, logText) {
+    setSource(data.summary);
+    setSourcePath(pathText);
+    setLog(logText + "\n");
+    setError("");
+    setStatus("Source ready");
   }
 
   async function importZip(file) {
     if (!file) return;
 
     setBusy(true);
+    clearSource();
     setError("");
-    setUpload(null);
     setStatus("Importing zip...");
 
     try {
@@ -94,13 +98,9 @@ export default function App() {
       const data = await res.json();
 
       if (!data.ok) throw new Error(data.error);
-
-      setSource(data.summary);
-      setSourcePath(file.name);
-      setLog("Source imported from zip.\n");
-      setStatus("Source ready");
+      setSourceReady(data, file.name, "Source imported from zip.");
     } catch (e) {
-      fail(friendlyFetchError("Zip import", e));
+      fail(friendly("Zip import", e));
     } finally {
       setBusy(false);
       if (zipRef.current) zipRef.current.value = "";
@@ -108,60 +108,70 @@ export default function App() {
   }
 
   async function importFolder() {
+    if (!bundleFolderPath.trim()) {
+      fail("Choose Bundle Folder failed: paste a bundle folder path first.");
+      return;
+    }
+
     setBusy(true);
+    clearSource();
     setError("");
-    setUpload(null);
-    setStatus("Importing bundle folder...");
+    setStatus("Importing folder...");
 
     try {
       const res = await fetch(API + "/api/import-folder", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ folderPath: bundleFolderPath, workspace })
+        body: JSON.stringify({ folderPath: bundleFolderPath.trim(), workspace })
       });
 
       const data = await res.json();
-      if (!data.ok) throw new Error(data.error);
 
-      setSource(data.summary);
-      setSourcePath(bundleFolderPath);
-      setLog("Source imported from folder.\n");
-      setStatus("Source ready");
+      if (!data.ok) throw new Error(data.error);
+      setSourceReady(data, bundleFolderPath.trim(), "Source imported from folder.");
     } catch (e) {
-      fail(e.message);
+      fail(friendly("Folder import", e));
     } finally {
       setBusy(false);
     }
   }
 
-  async function importAnyRepo() {
+  async function scanRepo() {
+    if (!repoScanPath.trim()) {
+      fail("Scan Repo failed: paste a repo folder path first.");
+      return;
+    }
+
     setBusy(true);
+    clearSource();
     setError("");
-    setUpload(null);
     setStatus("Scanning repo...");
 
     try {
       const res = await fetch(API + "/api/import-any-repo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repoPath: repoScanPath, workspace })
+        body: JSON.stringify({ repoPath: repoScanPath.trim(), workspace })
       });
 
       const data = await res.json();
-      if (!data.ok) throw new Error(data.error);
 
-      setSource(data.summary);
-      setSourcePath(repoScanPath);
-      setLog("Source generated from repo scan.\n");
-      setStatus("Source ready");
+      if (!data.ok) throw new Error(data.error);
+      setSourceReady(data, repoScanPath.trim(), "Source generated from repo scan.");
     } catch (e) {
-      fail(friendlyFetchError("Folder import", e));
+      fail(friendly("Repo scan", e));
     } finally {
       setBusy(false);
     }
   }
 
   async function buildPackage() {
+    if (!source) {
+      setError("Build Package failed: choose a source first.");
+      setStatus("Needs attention");
+      return;
+    }
+
     setBusy(true);
     setError("");
     setUpload(null);
@@ -179,22 +189,37 @@ export default function App() {
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
+      let full = "";
 
       while (true) {
         const item = await reader.read();
         if (item.done) break;
-        setLog((prev) => prev + decoder.decode(item.value, { stream: true }));
+        const chunk = decoder.decode(item.value, { stream: true });
+        full += chunk;
+        setLog((prev) => prev + chunk);
       }
 
-      setStatus("Package ready");
+      if (full.includes("WORKBENCH_FULL_PIPELINE_GREEN")) {
+        setStatus("Package ready");
+      } else {
+        setStatus("Needs attention");
+        setError("Build finished, but the green success token was not found. Open technical details.");
+      }
     } catch (e) {
-      fail(friendlyFetchError("Build package", e));
+      setStatus("Needs attention");
+      setError(friendly("Build package", e));
     } finally {
       setBusy(false);
     }
   }
 
   async function createUploadBundle() {
+    if (!exportDir) {
+      setError("Create Upload Bundle failed: build a package first.");
+      setStatus("Needs attention");
+      return;
+    }
+
     setBusy(true);
     setError("");
     setStatus("Creating upload bundle...");
@@ -207,12 +232,14 @@ export default function App() {
       });
 
       const data = await res.json();
+
       if (!data.ok) throw new Error(data.error);
 
       setUpload(data);
       setStatus("Upload bundle ready");
     } catch (e) {
-      fail(friendlyFetchError("Create upload bundle", e));
+      setStatus("Needs attention");
+      setError(friendly("Create upload bundle", e));
     } finally {
       setBusy(false);
     }
@@ -222,16 +249,14 @@ export default function App() {
     if (!targetPath) return;
 
     try {
-      const res = await fetch(API + "/api/open-path", {
+      await fetch(API + "/api/open-path", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetPath })
       });
-
-      const data = await res.json();
-      if (!data.ok) throw new Error(data.error || "Open folder failed.");
     } catch (e) {
-      fail(friendlyFetchError("Open folder", e));
+      setError(friendly("Open folder", e));
+      setStatus("Needs attention");
     }
   }
 
@@ -255,14 +280,8 @@ export default function App() {
       <main>
         <header>
           <h2>Build Contract Package</h2>
-          <p>Import a contract bundle, build it locally, then create an upload file.</p>
+          <p>Import a contract bundle, or scan a local repo into a generated bundle.</p>
         </header>
-
-        {!bridgeOk && (
-          <div className="error">
-            Local bridge is offline. Start the Workbench dev server and refresh.
-          </div>
-        )}
 
         {error && <div className="error">{error}</div>}
 
@@ -270,15 +289,37 @@ export default function App() {
           <div className="card">
             <div className="num">1</div>
             <h3>Choose source</h3>
-            <p>Use a bundle zip, a bundle folder, or scan any local repo into a generated bundle.</p>
+            <p>Use a bundle zip, bundle folder, or scan a normal local repo.</p>
 
             <div className="buttons">
               <label className="button">
                 Choose Zip
                 <input ref={zipRef} type="file" accept=".zip" onChange={(e) => importZip(e.target.files?.[0])} />
               </label>
-              <button onClick={importFolder} disabled={busy || !bridgeOk}>Choose Bundle Folder</button>
-<button onClick={importAnyRepo} disabled={busy || !bridgeOk}>Scan Repo</button>
+            </div>
+
+            <div className="path-import">
+              <label>
+                <span>Bundle folder path</span>
+                <input
+                  value={bundleFolderPath}
+                  onChange={(e) => setBundleFolderPath(e.target.value)}
+                  placeholder="C:\path\to\contract_bundle_v1"
+                />
+              </label>
+              <button onClick={importFolder} disabled={busy || !bridgeOk}>Import Bundle Folder</button>
+            </div>
+
+            <div className="path-import">
+              <label>
+                <span>Repo folder path</span>
+                <input
+                  value={repoScanPath}
+                  onChange={(e) => setRepoScanPath(e.target.value)}
+                  placeholder="C:\path\to\repo"
+                />
+              </label>
+              <button onClick={scanRepo} disabled={busy || !bridgeOk}>Scan Repo</button>
             </div>
 
             <div className={source ? "notice good" : "notice"}>
@@ -299,7 +340,7 @@ export default function App() {
             <h3>Build package</h3>
             <p>Runs inspect, build, verify, and export using the local engine.</p>
 
-            <button className="primary" onClick={buildPackage} disabled={busy || !bridgeOk}>
+            <button className="primary" onClick={buildPackage} disabled={busy || !bridgeOk || !source}>
               {busy ? "Working..." : "Build Package"}
             </button>
 
