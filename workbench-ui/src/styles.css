@@ -300,3 +300,16 @@ pre {
 .gap-left {
   margin-left: 10px;
 }
+
+.run-all {
+  width: 100%;
+  margin-top: 12px;
+  background: #059669;
+  font-size: 15px;
+  padding: 14px;
+}
+
+.run-all:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

@@ -296,6 +296,72 @@ export default function App() {
     }
   }
 
+  async function runAll() {
+    if (!source) {
+      setError("Run All failed: choose a source first.");
+      setStatus("Needs attention");
+      return;
+    }
+
+    setBusy(true);
+    setError("");
+    setUpload(null);
+    setStatus("Building package...");
+    setLog("");
+
+    let full = "";
+    let nextExportDir = "";
+
+    try {
+      const buildRes = await fetch(API + "/api/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ repoRoot, workspace })
+      });
+
+      if (!buildRes.body) throw new Error("Build response stream missing.");
+
+      const reader = buildRes.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const item = await reader.read();
+        if (item.done) break;
+        const chunk = decoder.decode(item.value, { stream: true });
+        full += chunk;
+        setLog((prev) => prev + chunk);
+      }
+
+      if (!full.includes("WORKBENCH_FULL_PIPELINE_GREEN")) {
+        throw new Error("Build finished, but the green success token was not found. Open technical details.");
+      }
+
+      nextExportDir = after("EVIDENCE_EXPORT_DIR:", full);
+      if (!nextExportDir) {
+        throw new Error("Build finished, but no export folder was found.");
+      }
+
+      setStatus("Creating upload bundle...");
+
+      const uploadRes = await fetch(API + "/api/create-upload-bundle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ exportDir: nextExportDir })
+      });
+
+      const uploadData = await uploadRes.json();
+      if (!uploadData.ok) throw new Error(uploadData.error);
+
+      setUpload(uploadData);
+      setStatus("Upload bundle ready");
+    } catch (e) {
+      setStatus("Needs attention");
+      setError(friendly("Run All", e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="app">
       <aside>
@@ -384,6 +450,10 @@ export default function App() {
 
             <button className="primary" onClick={buildPackage} disabled={busy || !bridgeOk || !source}>
               {busy ? "Working..." : "Build Package"}
+            </button>
+
+            <button className="run-all" onClick={runAll} disabled={busy || !bridgeOk || !source}>
+              Run All: Build + Create Upload Bundle
             </button>
 
             <div className="steps">
