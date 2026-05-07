@@ -521,7 +521,8 @@ app.post("/api/read-export-files", (req, res) => {
       "version.json",
       "overlay_summary.txt",
       "sha256sums.txt",
-      "export_receipt.txt"
+      "export_receipt.txt",
+      "source_inventory.json"
     ];
 
     const files = {};
