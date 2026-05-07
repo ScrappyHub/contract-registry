@@ -60,6 +60,7 @@ export default function App() {
   const [workspace] = useState("C:\\dev\\contract-registry\\workbench\\workspace");
 
   const [bundleFolderPath, setBundleFolderPath] = useState("");
+  const [repoPathText, setRepoPathText] = useState("C:\\dev\\contract-registry");
   const [repoScanPath, setRepoScanPath] = useState("");
 
   const [bridgeOk, setBridgeOk] = useState(false);
@@ -72,6 +73,7 @@ export default function App() {
   const [upload, setUpload] = useState(null);
   const [showTech, setShowTech] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [intakeMeta, setIntakeMeta] = useState(null);
   const [exportFiles, setExportFiles] = useState(null);
   const [selectedExportFile, setSelectedExportFile] = useState("");
   const [openNotice, setOpenNotice] = useState("");
@@ -103,6 +105,7 @@ export default function App() {
   const displayedFileCount =
     manifestSummary?.source_file_count ||
     projectSummary?.fileCount ||
+    intakeMeta?.fileCount ||
     "-";
 
   useEffect(() => {
@@ -129,6 +132,7 @@ export default function App() {
     setExportFiles(null);
     setSelectedExportFile("");
     setShowPreview(false);
+    setIntakeMeta(null);
   }
 
   function fail(message) {
@@ -140,9 +144,43 @@ export default function App() {
   function setSourceReady(data, pathText, logText) {
     setSource(data.summary);
     setSourcePath(pathText);
+    setIntakeMeta({
+      fileCount: data?.repoIntake?.fileCount || data?.summary?.manifest?.source_file_count || null,
+      sourceDigest: data?.repoIntake?.sourceDigestSha256 || data?.summary?.manifest?.source_digest_sha256 || "",
+      mode: data?.summary?.manifest?.source_kind || "bundle"
+    });
     setLog(logText + "\n");
     setError("");
     setStatus("Source ready");
+  }
+
+  async function scanRepoPath() {
+    if (!repoPathText.trim()) {
+      fail("Local path scan failed: enter a repo folder path first.");
+      return;
+    }
+
+    setBusy(true);
+    clearSource();
+    setError("");
+    setStatus("Scanning local path...");
+
+    try {
+      const res = await fetch(API + "/api/import-repo-path", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ repoPath: repoPathText.trim(), workspace })
+      });
+
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+
+      setSourceReady(data, repoPathText.trim(), "Source generated from local path scan.");
+    } catch (e) {
+      fail(friendly("Local path scan", e));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function uploadFolderFiles(files, endpoint, label) {
@@ -506,7 +544,7 @@ export default function App() {
           <div className="card">
             <div className="num">1</div>
             <h3>Choose source</h3>
-            <p>Choose a bundle zip, choose a bundle folder, or choose a repo folder to scan.</p>
+            <p>Choose a bundle zip/folder, or scan a local repo path directly from disk.</p>
 
             <div className="buttons">
               <label className="button">
@@ -530,10 +568,22 @@ export default function App() {
                 />
               </label>
 
+              <div className="pick-card manual-path-card">
+                <span className="pick-title">Local repo path recommended</span>
+                <span className="pick-text">Best for normal and large repos. Scans directly from disk.</span>
+                <input
+                  className="manual-path-input"
+                  value={repoPathText}
+                  onChange={(e) => setRepoPathText(e.target.value)}
+                  placeholder="C:\dev\my-repo"
+                />
+                <button onClick={scanRepoPath} disabled={busy || !bridgeOk}>Scan Local Path</button>
+              </div>
+
               <label className="pick-card">
-                <span className="pick-title">Repo folder</span>
-                <span className="pick-text">Scan any local project folder</span>
-                <strong>Choose Repo Folder</strong>
+                <span className="pick-title">Repo folder upload</span>
+                <span className="pick-text">Fallback only. Use Local repo path for real projects.</span>
+                <strong>Small Repo Upload</strong>
                 <input
                   ref={repoFolderRef}
                   type="file"
@@ -551,6 +601,8 @@ export default function App() {
                   <b>Source ready</b>
                   <span>{source.contractKey} / {source.versionLabel}</span>
                   <small>{sourcePath}</small>
+                  {intakeMeta?.fileCount && <small>{intakeMeta.fileCount} files scanned</small>}
+                  {intakeMeta?.sourceDigest && <small>digest: {intakeMeta.sourceDigest}</small>}
                 </>
               ) : (
                 "No source selected yet."
@@ -671,12 +723,12 @@ export default function App() {
 
                   <div>
                     <span>Top extensions</span>
-                    <p>{projectSummary.topExt.map(([k,v]) => `${k} ${v}`).join(" Ãƒâ€šÃ‚Â· ") || "-"}</p>
+                    <p>{projectSummary.topExt.map(([k,v]) => `${k} ${v}`).join(" ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ") || "-"}</p>
                   </div>
 
                   <div>
                     <span>Top folders</span>
-                    <p>{projectSummary.topFolders.map(([k,v]) => `${k} ${v}`).join(" Ãƒâ€šÃ‚Â· ") || "-"}</p>
+                    <p>{projectSummary.topFolders.map(([k,v]) => `${k} ${v}`).join(" ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ") || "-"}</p>
                   </div>
                 </div>
               )}
