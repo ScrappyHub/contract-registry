@@ -11,6 +11,15 @@ function done(step, log) {
   return log.includes("STEP_OK: " + step);
 }
 
+function repoIntelligence(files) {
+  try {
+    const raw = files?.["repo_intelligence.json"];
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 function inventorySummary(files) {
   try {
     const raw = files?.["source_inventory.json"];
@@ -89,6 +98,7 @@ export default function App() {
   const receiptHash = after("EVIDENCE_EXPORT_RECEIPT_SHA256:", log);
   const ready = log.includes("WORKBENCH_FULL_PIPELINE_GREEN");
   const projectSummary = inventorySummary(exportFiles);
+  const intelligence = repoIntelligence(exportFiles);
   const manifestText = exportFiles?.["manifest.json"] || "";
   let manifestSummary = null;
   try {
@@ -714,6 +724,53 @@ export default function App() {
                 </div>
               </div>
 
+              {intelligence && (
+                <div className="intelligence-panel">
+                  <h3>Repo Intelligence</h3>
+
+                  <div className="intel-grid">
+                    <div>
+                      <span>Languages</span>
+                      <strong>{(intelligence.languages || []).join(", ") || "Not detected"}</strong>
+                    </div>
+
+                    <div>
+                      <span>Package managers</span>
+                      <strong>{(intelligence.package_managers || []).join(", ") || "Not detected"}</strong>
+                    </div>
+
+                    <div>
+                      <span>API candidates</span>
+                      <strong>{(intelligence.api_candidates || []).length}</strong>
+                    </div>
+
+                    <div>
+                      <span>Schema candidates</span>
+                      <strong>{(intelligence.schema_candidates || []).length}</strong>
+                    </div>
+
+                    <div>
+                      <span>Docs</span>
+                      <strong>{(intelligence.docs || []).length ? "Found" : "Not detected"}</strong>
+                    </div>
+
+                    <div>
+                      <span>License</span>
+                      <strong>{(intelligence.license_files || []).length ? "Found" : "Not detected"}</strong>
+                    </div>
+                  </div>
+
+                  {(intelligence.risk_notes || []).length > 0 && (
+                    <div className="risk-notes">
+                      <h4>Review notes</h4>
+                      {(intelligence.risk_notes || []).map((note, index) => (
+                        <p key={index}>{note}</p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {projectSummary && (
                 <div className="project-summary">
                   <div>
@@ -723,12 +780,12 @@ export default function App() {
 
                   <div>
                     <span>Top extensions</span>
-                    <p>{projectSummary.topExt.map(([k,v]) => `${k} ${v}`).join(" ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ") || "-"}</p>
+                    <p>{projectSummary.topExt.map(([k,v]) => `${k} ${v}`).join(" ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ") || "-"}</p>
                   </div>
 
                   <div>
                     <span>Top folders</span>
-                    <p>{projectSummary.topFolders.map(([k,v]) => `${k} ${v}`).join(" ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ") || "-"}</p>
+                    <p>{projectSummary.topFolders.map(([k,v]) => `${k} ${v}`).join(" ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ") || "-"}</p>
                   </div>
                 </div>
               )}

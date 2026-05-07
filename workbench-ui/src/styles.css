@@ -513,3 +513,58 @@ pre {
 .manual-path-card .pick-title {
   color: #bbf7d0;
 }
+
+.intelligence-panel {
+  margin: 16px 0;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.intelligence-panel h3 {
+  margin: 0 0 12px 0;
+}
+
+.intel-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.intel-grid div {
+  background: #111827;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.intel-grid span {
+  color: #cbd5e1;
+  font-size: 12px;
+}
+
+.intel-grid strong {
+  color: #f8fafc;
+  overflow-wrap: anywhere;
+}
+
+.risk-notes {
+  margin-top: 14px;
+  background: #2a1f0b;
+  border: 1px solid #854d0e;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.risk-notes h4 {
+  margin: 0 0 8px 0;
+  color: #fde68a;
+}
+
+.risk-notes p {
+  margin: 6px 0;
+  color: #fef3c7;
+}
