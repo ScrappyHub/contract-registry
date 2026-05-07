@@ -2,6 +2,16 @@ import { useEffect, useRef, useState } from "react";
 
 const API = "http://localhost:5185";
 
+function friendlyFetchError(operation, err) {
+  const message = err?.message || String(err || "Unknown error");
+
+  if (message === "Failed to fetch") {
+    return operation + " failed because the local bridge did not respond. Make sure npm run dev is running and the bridge says WORKBENCH_BRIDGE_READY on port 5185.";
+  }
+
+  return operation + " failed: " + message;
+}
+
 function after(label, text) {
   const line = text.split(/\r?\n/).find((x) => x.startsWith(label));
   return line ? line.slice(label.length).trim() : "";
@@ -44,8 +54,9 @@ export default function App() {
       const res = await fetch(API + "/api/health");
       const data = await res.json();
       setBridgeOk(!!data.ok);
-    } catch {
+    } catch (e) {
       setBridgeOk(false);
+      setError(friendlyFetchError("Bridge check", e));
     }
   }
 
@@ -89,7 +100,7 @@ export default function App() {
       setLog("Source imported from zip.\n");
       setStatus("Source ready");
     } catch (e) {
-      fail(e.message);
+      fail(friendlyFetchError("Zip import", e));
     } finally {
       setBusy(false);
       if (zipRef.current) zipRef.current.value = "";
@@ -144,7 +155,7 @@ export default function App() {
       setLog("Source generated from repo scan.\n");
       setStatus("Source ready");
     } catch (e) {
-      fail(e.message);
+      fail(friendlyFetchError("Folder import", e));
     } finally {
       setBusy(false);
     }
@@ -177,7 +188,7 @@ export default function App() {
 
       setStatus("Package ready");
     } catch (e) {
-      fail(e.message);
+      fail(friendlyFetchError("Build package", e));
     } finally {
       setBusy(false);
     }
@@ -201,7 +212,7 @@ export default function App() {
       setUpload(data);
       setStatus("Upload bundle ready");
     } catch (e) {
-      fail(e.message);
+      fail(friendlyFetchError("Create upload bundle", e));
     } finally {
       setBusy(false);
     }
@@ -210,11 +221,18 @@ export default function App() {
   async function openPath(targetPath) {
     if (!targetPath) return;
 
-    await fetch(API + "/api/open-path", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ targetPath })
-    });
+    try {
+      const res = await fetch(API + "/api/open-path", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetPath })
+      });
+
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || "Open folder failed.");
+    } catch (e) {
+      fail(friendlyFetchError("Open folder", e));
+    }
   }
 
   return (
