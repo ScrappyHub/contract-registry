@@ -492,10 +492,19 @@ app.post("/api/open-path", (req, res) => {
     if (!targetPath) throw new Error("No path provided.");
     if (!fs.existsSync(targetPath)) throw new Error("That path does not exist yet.");
 
-    const child = spawn("explorer.exe", [targetPath], { windowsHide: true, detached: true });
+    const child = spawn("cmd.exe", ["/c", "start", "", targetPath], {
+      windowsHide: true,
+      detached: true,
+      stdio: "ignore"
+    });
+
     child.unref();
 
-    return res.json({ ok: true });
+    return res.json({
+      ok: true,
+      token: "OPEN_PATH_OK",
+      targetPath
+    });
   } catch (err) {
     return res.status(400).json({ ok: false, error: err.message });
   }

@@ -35,6 +35,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [upload, setUpload] = useState(null);
   const [showTech, setShowTech] = useState(false);
+  const [openNotice, setOpenNotice] = useState("");
 
   const zipRef = useRef(null);
   const bundleFolderRef = useRef(null);
@@ -285,12 +286,19 @@ export default function App() {
     if (!targetPath) return;
 
     try {
-      await fetch(API + "/api/open-path", {
+      const res = await fetch(API + "/api/open-path", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetPath })
       });
+
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || "Open folder failed.");
+
+      setOpenNotice("Opened: " + targetPath);
+      setError("");
     } catch (e) {
+      setOpenNotice("");
       setError(friendly("Open folder", e));
       setStatus("Needs attention");
     }
@@ -386,6 +394,7 @@ export default function App() {
         </header>
 
         {error && <div className="error">{error}</div>}
+        {openNotice && <div className="success top-notice">{openNotice}</div>}
 
         <section className="cards">
           <div className="card">
