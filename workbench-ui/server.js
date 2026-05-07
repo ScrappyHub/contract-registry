@@ -492,18 +492,41 @@ app.post("/api/open-path", (req, res) => {
     if (!targetPath) throw new Error("No path provided.");
     if (!fs.existsSync(targetPath)) throw new Error("That path does not exist yet.");
 
-    const child = spawn("cmd.exe", ["/c", "start", "", targetPath], {
-      windowsHide: true,
-      detached: true,
-      stdio: "ignore"
+    const psCode = `
+$ErrorActionPreference = "Stop"
+$p = '${String(targetPath).replaceAll("'", "''")}'
+Start-Process -FilePath explorer.exe -ArgumentList @($p)
+Write-Output "OPEN_PATH_OK"
+`;
+
+    const child = spawn("powershell.exe", [
+      "-NoProfile",
+      "-NonInteractive",
+      "-ExecutionPolicy", "Bypass",
+      "-Command", psCode
+    ], {
+      windowsHide: false
     });
 
-    child.unref();
+    let stdout = "";
+    let stderr = "";
 
-    return res.json({
-      ok: true,
-      token: "OPEN_PATH_OK",
-      targetPath
+    child.stdout.on("data", d => stdout += d.toString());
+    child.stderr.on("data", d => stderr += d.toString());
+
+    child.on("close", code => {
+      if (code !== 0 || !stdout.includes("OPEN_PATH_OK")) {
+        return res.status(400).json({
+          ok: false,
+          error: "Explorer launch failed: " + (stderr || stdout || ("exit " + code))
+        });
+      }
+
+      return res.json({
+        ok: true,
+        token: "OPEN_PATH_OK",
+        targetPath
+      });
     });
   } catch (err) {
     return res.status(400).json({ ok: false, error: err.message });
