@@ -445,6 +445,55 @@ function detectRepoIntelligence(kept) {
     return n === ".env.example" || n === "env.example" || n.endsWith(".env.example");
   });
 
+  const dependencySignals = [];
+  if (lower.includes("package.json")) dependencySignals.push("npm package manifest");
+  if (lower.includes("supabase/config.toml") || anyIncludes(["supabase/migrations"]).length) dependencySignals.push("supabase");
+  if (anyIncludes(["stripe", "webhook"]).length) dependencySignals.push("stripe/webhooks");
+  if (lower.includes("vercel.json")) dependencySignals.push("vercel");
+  if (lower.includes("dockerfile") || lower.includes("docker-compose.yml")) dependencySignals.push("docker");
+  if (anyIncludes(["github/workflows", ".github/workflows"]).length) dependencySignals.push("github actions");
+
+  const exportedSurfaces = [];
+  if (apiCandidates.length) exportedSurfaces.push("api/server candidates");
+  if (schemaCandidates.length) exportedSurfaces.push("schema/database candidates");
+  if (anyEnds([".ps1"]).some(p => p.includes("cli") || p.includes("run"))) exportedSurfaces.push("powershell cli/runner");
+  if (anyIncludes(["chrome-extension", "manifest.json"]).length) exportedSurfaces.push("browser extension candidate");
+  if (anyIncludes(["electron", "tauri"]).length) exportedSurfaces.push("desktop app candidate");
+
+  const deploymentHints = [];
+  if (lower.includes("vercel.json")) deploymentHints.push("vercel");
+  if (lower.includes("dockerfile") || lower.includes("docker-compose.yml")) deploymentHints.push("container");
+  if (anyIncludes(["supabase/"]).length) deploymentHints.push("supabase");
+  if (anyIncludes(["netlify.toml"]).length) deploymentHints.push("netlify");
+  if (anyIncludes(["wrangler.toml"]).length) deploymentHints.push("cloudflare workers");
+
+  const repoTypeScores = {
+    "web app": 0,
+    "backend/api": 0,
+    "cli/tooling": 0,
+    "desktop app": 0,
+    "browser extension": 0,
+    "database/schema project": 0,
+    "infrastructure": 0,
+    "library/sdk": 0
+  };
+
+  if (anyEnds([".jsx", ".tsx"]).length || anyIncludes(["vite.config", "next.config"]).length) repoTypeScores["web app"] += 3;
+  if (apiCandidates.length) repoTypeScores["backend/api"] += 4;
+  if (anyEnds([".ps1", ".sh"]).length) repoTypeScores["cli/tooling"] += 2;
+  if (anyIncludes(["electron", "tauri"]).length) repoTypeScores["desktop app"] += 4;
+  if (anyIncludes(["manifest.json", "chrome-extension", "mv3"]).length) repoTypeScores["browser extension"] += 3;
+  if (schemaCandidates.length || anyIncludes(["migrations"]).length) repoTypeScores["database/schema project"] += 3;
+  if (lower.includes("dockerfile") || lower.includes("docker-compose.yml") || anyIncludes(["terraform", "infra"]).length) repoTypeScores["infrastructure"] += 3;
+  if (anyIncludes(["src/index", "lib/", "sdk"]).length) repoTypeScores["library/sdk"] += 2;
+
+  const repoTypes = Object.entries(repoTypeScores)
+    .filter(([, score]) => score > 0)
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, score]) => ({ name, score }));
+
+  const primaryType = repoTypes.length ? repoTypes[0].name : "general project";
+
   const riskNotes = [];
   if (!licenseFiles.length) riskNotes.push("No license file detected.");
   if (!docs.length) riskNotes.push("No README/docs detected.");
@@ -462,6 +511,11 @@ function detectRepoIntelligence(kept) {
     license_files: licenseFiles,
     docs,
     env_examples: envExamples,
+    repo_type: primaryType,
+    repo_type_candidates: repoTypes,
+    dependency_signals: dependencySignals,
+    exported_surfaces: exportedSurfaces,
+    deployment_hints: deploymentHints,
     risk_notes: riskNotes
   };
 }
@@ -596,6 +650,21 @@ app.post("/api/import-folder-upload", upload.array("files", 2000), (req, res) =>
   }
 });
 
+app.post("/api/import-repo-path", (req, res) => {
+  try {
+    const repoPath = req.body?.repoPath;
+    const workspace = req.body?.workspace;
+
+    if (!repoPath) throw new Error("No repo path provided.");
+    if (!workspace) throw new Error("No workspace provided.");
+    if (!fs.existsSync(repoPath)) throw new Error("Repo path does not exist.");
+    if (!fs.statSync(repoPath).isDirectory()) throw new Error("Repo path is not a folder.");
+
+    return res.json(createBundleFromAnyRepo(repoPath, workspace));
+  } catch (err) {
+    return res.status(400).json({ ok: false, error: err.message });
+  }
+});
 app.post("/api/import-repo-upload", upload.array("files", 5000), (req, res) => {
   try {
     const workspace = req.body?.workspace;
