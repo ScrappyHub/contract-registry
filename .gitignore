@@ -38,3 +38,14 @@ npm-debug.log*
 # --- workbench runtime/generated files ---
 workbench/workspace/output/
 workbench/workspace/*.zip
+
+# Workbench runtime workspace
+workbench/workspace/input/
+workbench/workspace/output/
+workbench/workspace/**/*.json
+workbench/workspace/**/*.txt
+workbench/workspace/**/*.zip
+
+# Runtime generated bundles
+contract_bundle_v1/
+
