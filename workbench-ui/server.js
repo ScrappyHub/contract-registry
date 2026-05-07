@@ -494,6 +494,82 @@ function detectRepoIntelligence(kept) {
 
   const primaryType = repoTypes.length ? repoTypes[0].name : "general project";
 
+  const frameworks = [];
+  if (anyIncludes(["vite.config"]).length) frameworks.push("vite");
+  if (anyIncludes(["next.config"]).length) frameworks.push("nextjs");
+  if (anyIncludes(["react", ".jsx", ".tsx"]).length) frameworks.push("react");
+  if (anyIncludes(["express"]).length || apiCandidates.some(p => p.toLowerCase().endsWith("server.js"))) frameworks.push("express/node");
+  if (anyIncludes(["tauri"]).length) frameworks.push("tauri");
+  if (anyIncludes(["electron"]).length) frameworks.push("electron");
+
+  const authSurfaces = [];
+  if (anyIncludes(["supabase", "auth"]).length) authSurfaces.push("supabase/auth candidates");
+  if (anyIncludes(["jwt", "oauth", "session", "passport"]).length) authSurfaces.push("token/session auth candidates");
+
+  const paymentSurfaces = [];
+  if (anyIncludes(["stripe"]).length) paymentSurfaces.push("stripe");
+  if (anyIncludes(["checkout", "billing", "subscription"]).length) paymentSurfaces.push("billing/subscription candidates");
+
+  const cloudSurfaces = [];
+  if (anyIncludes(["vercel"]).length) cloudSurfaces.push("vercel");
+  if (anyIncludes(["supabase"]).length) cloudSurfaces.push("supabase");
+  if (anyIncludes(["netlify"]).length) cloudSurfaces.push("netlify");
+  if (anyIncludes(["wrangler", "cloudflare"]).length) cloudSurfaces.push("cloudflare");
+  if (anyIncludes(["docker"]).length) cloudSurfaces.push("docker/container");
+
+  const governanceSurfaces = [];
+  if (anyIncludes(["policy", "policies", "overlay"]).length) governanceSurfaces.push("policy/overlay files");
+  if (anyIncludes(["receipt", "receipts", "proofs"]).length) governanceSurfaces.push("receipts/proofs");
+  if (anyIncludes(["signature", "sign", "verify", "sha256"]).length) governanceSurfaces.push("signature/hash verification");
+  if (anyIncludes(["license"]).length) governanceSurfaces.push("license surface");
+
+  const aiSurfaces = [];
+  if (anyIncludes(["openai", "anthropic", "llm", "model", "embedding", "chatgpt"]).length) aiSurfaces.push("ai/model usage candidates");
+
+  const envVars = [];
+  const envFiles = paths.filter(p => {
+    const n = p.toLowerCase().split("/").pop();
+    return n === ".env" || n === ".env.example" || n.endsWith(".env.example") || n === "env.example";
+  });
+
+  for (const p of envFiles.slice(0, 20)) {
+    envVars.push(p);
+  }
+
+  const permissionFiles = paths.filter(p => {
+    const l = p.toLowerCase();
+    return l.endsWith("manifest.json") || l.includes("permissions") || l.includes("capabilities");
+  }).slice(0, 50);
+
+  const endpointCandidates = paths.filter(p => {
+    const l = p.toLowerCase();
+    return (
+      l.includes("/api/") ||
+      l.includes("\\api\\") ||
+      l.includes("/routes/") ||
+      l.includes("\\routes\\") ||
+      l.includes("controller") ||
+      l.includes("endpoint") ||
+      l.endsWith("server.js") ||
+      l.endsWith("server.ts")
+    );
+  }).slice(0, 75);
+
+  const semantic_summary = {
+    semantic_schema: "contract_registry.repo_semantic_intelligence.v2",
+    semantic_summary,
+    repo_type: primaryType,
+    frameworks,
+    endpoint_candidates: endpointCandidates,
+    auth_surfaces: authSurfaces,
+    payment_surfaces: paymentSurfaces,
+    cloud_surfaces: cloudSurfaces,
+    governance_surfaces: governanceSurfaces,
+    ai_surfaces: aiSurfaces,
+    env_files: envVars,
+    permission_files: permissionFiles
+  };
+
   const riskNotes = [];
   if (!licenseFiles.length) riskNotes.push("No license file detected.");
   if (!docs.length) riskNotes.push("No README/docs detected.");
@@ -511,6 +587,8 @@ function detectRepoIntelligence(kept) {
     license_files: licenseFiles,
     docs,
     env_examples: envExamples,
+    semantic_schema: "contract_registry.repo_semantic_intelligence.v2",
+    semantic_summary,
     repo_type: primaryType,
     repo_type_candidates: repoTypes,
     dependency_signals: dependencySignals,
