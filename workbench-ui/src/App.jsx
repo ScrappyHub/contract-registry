@@ -11,6 +11,42 @@ function done(step, log) {
   return log.includes("STEP_OK: " + step);
 }
 
+function inventorySummary(files) {
+  try {
+    const raw = files?.["source_inventory.json"];
+    if (!raw) return null;
+
+    const inv = JSON.parse(raw);
+    const items = Array.isArray(inv.files) ? inv.files : [];
+
+    const extCounts = {};
+    const folderCounts = {};
+
+    for (const item of items) {
+      const p = item.path || "";
+      const parts = p.split("/");
+      const folder = parts.length > 1 ? parts[0] : "(root)";
+      const name = parts[parts.length - 1] || "";
+      const dot = name.lastIndexOf(".");
+      const ext = dot >= 0 ? name.slice(dot).toLowerCase() : "(none)";
+
+      folderCounts[folder] = (folderCounts[folder] || 0) + 1;
+      extCounts[ext] = (extCounts[ext] || 0) + 1;
+    }
+
+    const topExt = Object.entries(extCounts).sort((a,b) => b[1] - a[1]).slice(0, 6);
+    const topFolders = Object.entries(folderCounts).sort((a,b) => b[1] - a[1]).slice(0, 6);
+
+    return {
+      fileCount: inv.file_count || items.length,
+      topExt,
+      topFolders
+    };
+  } catch {
+    return null;
+  }
+}
+
 function friendly(operation, err) {
   const msg = err?.message || String(err || "Unknown error");
   if (msg === "Failed to fetch") {
@@ -48,6 +84,7 @@ export default function App() {
   const receipt = after("EVIDENCE_EXPORT_RECEIPT:", log);
   const receiptHash = after("EVIDENCE_EXPORT_RECEIPT_SHA256:", log);
   const ready = log.includes("WORKBENCH_FULL_PIPELINE_GREEN");
+  const projectSummary = inventorySummary(exportFiles);
 
   useEffect(() => {
     checkBridge();
@@ -564,6 +601,25 @@ export default function App() {
                       <strong>{receiptHash ? "Verified" : "-"}</strong>
                     </div>
                   </div>
+
+                  {projectSummary && (
+                    <div className="project-summary">
+                      <div>
+                        <span>Scanned files</span>
+                        <strong>{projectSummary.fileCount}</strong>
+                      </div>
+
+                      <div>
+                        <span>Top extensions</span>
+                        <p>{projectSummary.topExt.map(([k,v]) => `${k} ${v}`).join(" · ") || "-"}</p>
+                      </div>
+
+                      <div>
+                        <span>Top folders</span>
+                        <p>{projectSummary.topFolders.map(([k,v]) => `${k} ${v}`).join(" · ") || "-"}</p>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="explorer-grid">
                     <div className="file-list">

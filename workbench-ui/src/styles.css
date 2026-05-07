@@ -395,3 +395,36 @@ pre {
 .file-reader pre {
   min-height: 320px;
 }
+
+.project-summary {
+  display: grid;
+  grid-template-columns: 170px 1fr 1fr;
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.project-summary div {
+  background: #111827;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.project-summary span {
+  display: block;
+  color: #cbd5e1;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.project-summary strong {
+  color: #86efac;
+  font-size: 22px;
+}
+
+.project-summary p {
+  margin: 0;
+  color: #f8fafc;
+  line-height: 1.45;
+  font-size: 13px;
+}
