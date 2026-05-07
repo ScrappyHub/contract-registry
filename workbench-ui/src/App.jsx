@@ -36,6 +36,7 @@ export default function App() {
   const [upload, setUpload] = useState(null);
   const [showTech, setShowTech] = useState(false);
   const [exportFiles, setExportFiles] = useState(null);
+  const [selectedExportFile, setSelectedExportFile] = useState("");
   const [openNotice, setOpenNotice] = useState("");
 
   const zipRef = useRef(null);
@@ -301,6 +302,7 @@ export default function App() {
       if (!data.ok) throw new Error(data.error);
 
       setExportFiles(data.files);
+      setSelectedExportFile(Object.keys(data.files || {})[0] || "");
       setShowTech(true);
       setError("");
     } catch (e) {
@@ -511,8 +513,11 @@ export default function App() {
                   <span>Ready for review or upload packaging.</span>
                 </div>
 
-                <button onClick={() => openPath(exportDir)}>Open Export Folder</button><button className="gap-left" onClick={readExportFiles}>Preview Export Files</button>
-                <button className="gap-left" onClick={createUploadBundle} disabled={busy}>Create Upload Bundle</button>
+                <div className="action-row">
+                  <button onClick={() => openPath(exportDir)}>Open Export Folder</button>
+                  <button onClick={readExportFiles}>Preview Package</button>
+                  <button onClick={createUploadBundle} disabled={busy}>Create Upload Bundle</button>
+                </div>
 
                 {upload && (
                   <div className="notice good">
@@ -542,18 +547,46 @@ export default function App() {
               <code>Receipt SHA-256: {receiptHash || "-"}</code>
 
               {exportFiles && (
-                <>
-                  <h3>Export files</h3>
-                  {Object.entries(exportFiles).map(([name, text]) => (
-                    <div className="file-preview" key={name}>
-                      <h4>{name}</h4>
-                      <pre>{text}</pre>
+                <div className="package-explorer">
+                  <h3>Package Explorer</h3>
+
+                  <div className="package-summary">
+                    <div>
+                      <span>Files</span>
+                      <strong>{Object.keys(exportFiles).length}</strong>
                     </div>
-                  ))}
-                </>
+                    <div>
+                      <span>Export</span>
+                      <strong>{exportDir ? "Ready" : "-"}</strong>
+                    </div>
+                    <div>
+                      <span>Receipt</span>
+                      <strong>{receiptHash ? "Verified" : "-"}</strong>
+                    </div>
+                  </div>
+
+                  <div className="explorer-grid">
+                    <div className="file-list">
+                      {Object.keys(exportFiles).map((name) => (
+                        <button
+                          key={name}
+                          className={selectedExportFile === name ? "file-tab active" : "file-tab"}
+                          onClick={() => setSelectedExportFile(name)}
+                        >
+                          {name}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="file-reader">
+                      <h4>{selectedExportFile || "No file selected"}</h4>
+                      <pre>{selectedExportFile ? exportFiles[selectedExportFile] : "Select a file."}</pre>
+                    </div>
+                  </div>
+                </div>
               )}
 
-              <h3>Log</h3>
+              <h3>Technical log</h3>
               <pre>{log || "No log yet."}</pre>
             </div>
           )}
