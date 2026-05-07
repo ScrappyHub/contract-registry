@@ -598,6 +598,130 @@ function detectRepoIntelligence(kept) {
   };
 }
 
+function extractTechnicalClauses(intelligence) {
+  const clauses = [];
+
+  function add(type, title, evidence, severity = "info") {
+    clauses.push({
+      type,
+      title,
+      severity,
+      evidence: Array.isArray(evidence) ? evidence.slice(0, 25) : []
+    });
+  }
+
+  const semantic = intelligence.semantic_summary || {};
+
+  if ((semantic.endpoint_candidates || []).length) {
+    add(
+      "api_surface",
+      "Repository exposes API/server endpoint candidates.",
+      semantic.endpoint_candidates,
+      "review"
+    );
+  }
+
+  if ((intelligence.schema_candidates || []).length) {
+    add(
+      "schema_surface",
+      "Repository contains schema or database candidates.",
+      intelligence.schema_candidates,
+      "review"
+    );
+  }
+
+  if ((semantic.auth_surfaces || []).length) {
+    add(
+      "auth_surface",
+      "Repository contains authentication/session/token signals.",
+      semantic.auth_surfaces,
+      "review"
+    );
+  }
+
+  if ((semantic.payment_surfaces || []).length) {
+    add(
+      "payment_surface",
+      "Repository contains billing or payment provider signals.",
+      semantic.payment_surfaces,
+      "review"
+    );
+  }
+
+  if ((semantic.cloud_surfaces || []).length) {
+    add(
+      "deployment_surface",
+      "Repository contains cloud/deployment provider signals.",
+      semantic.cloud_surfaces,
+      "info"
+    );
+  }
+
+  if ((semantic.env_files || []).length) {
+    add(
+      "configuration_secret_surface",
+      "Repository contains environment/config template files.",
+      semantic.env_files,
+      "review"
+    );
+  }
+
+  if ((semantic.permission_files || []).length) {
+    add(
+      "permission_surface",
+      "Repository contains permission/capability manifest candidates.",
+      semantic.permission_files,
+      "review"
+    );
+  }
+
+  if ((semantic.governance_surfaces || []).length) {
+    add(
+      "governance_surface",
+      "Repository contains governance/proof/policy/signature signals.",
+      semantic.governance_surfaces,
+      "info"
+    );
+  }
+
+  if ((semantic.ai_surfaces || []).length) {
+    add(
+      "ai_surface",
+      "Repository contains AI/model usage candidate signals.",
+      semantic.ai_surfaces,
+      "review"
+    );
+  }
+
+  if (!(intelligence.license_files || []).length) {
+    add(
+      "license_missing",
+      "No license file detected.",
+      [],
+      "warning"
+    );
+  }
+
+  if (!(intelligence.docs || []).length) {
+    add(
+      "docs_missing",
+      "No README/docs detected.",
+      [],
+      "warning"
+    );
+  }
+
+  return {
+    schema: "contract_registry.technical_clauses.v1",
+    generated_utc: new Date().toISOString(),
+    source_schema: intelligence.schema,
+    semantic_schema: intelligence.semantic_schema || null,
+    repo_type: intelligence.repo_type || "general project",
+    clause_count: clauses.length,
+    clauses
+  };
+}
+
 function createBundleFromUploadedRepo(files, workspace) {
   if (!files || files.length === 0) throw new Error("No repo files selected.");
   if (files.length > 1200) {
@@ -682,7 +806,11 @@ const rootName = firstPath.includes("/") ? firstPath.split("/")[0] : "uploaded.r
   });
 
   const intelligence = detectRepoIntelligence(kept);
-  writeJson(path.join(inputRoot, "repo_intelligence.json"), intelligence);
+  writeJson(path.join(inputRoot, "repo_intelligence.json",
+      "technical_clauses.json"), intelligence);
+
+  const technicalClauses = extractTechnicalClauses(intelligence);
+  writeJson(path.join(inputRoot, "technical_clauses.json"), technicalClauses);
 
   return {
     ok: true,
@@ -767,7 +895,8 @@ app.post("/api/read-export-files", (req, res) => {
       "sha256sums.txt",
       "export_receipt.txt",
       "source_inventory.json",
-      "repo_intelligence.json"
+      "repo_intelligence.json",
+      "technical_clauses.json"
     ];
 
     const files = {};
