@@ -37,6 +37,8 @@ export default function App() {
   const [showTech, setShowTech] = useState(false);
 
   const zipRef = useRef(null);
+  const bundleFolderRef = useRef(null);
+  const repoFolderRef = useRef(null);
 
   const exportDir = after("EVIDENCE_EXPORT_DIR:", log);
   const releaseDir = after("LATEST_RELEASE:", log);
@@ -79,6 +81,40 @@ export default function App() {
     setLog(logText + "\n");
     setError("");
     setStatus("Source ready");
+  }
+
+  async function uploadFolderFiles(files, endpoint, label) {
+    if (!files || files.length === 0) return;
+
+    setBusy(true);
+    clearSource();
+    setError("");
+    setStatus(label + "...");
+
+    try {
+      const form = new FormData();
+      for (const file of Array.from(files)) {
+        const rel = file.webkitRelativePath || file.name;
+        form.append("files", file, rel);
+      }
+      form.append("workspace", workspace);
+
+      const res = await fetch(API + endpoint, {
+        method: "POST",
+        body: form
+      });
+
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+
+      setSourceReady(data, "Selected folder", label + ".");
+    } catch (e) {
+      fail(friendly(label, e));
+    } finally {
+      setBusy(false);
+      if (bundleFolderRef.current) bundleFolderRef.current.value = "";
+      if (repoFolderRef.current) repoFolderRef.current.value = "";
+    }
   }
 
   async function importZip(file) {
@@ -289,7 +325,7 @@ export default function App() {
           <div className="card">
             <div className="num">1</div>
             <h3>Choose source</h3>
-            <p>Use a bundle zip, bundle folder, or scan a normal local repo.</p>
+            <p>Choose a bundle zip, choose a bundle folder, or choose a repo folder to scan.</p>
 
             <div className="buttons">
               <label className="button">
@@ -300,26 +336,30 @@ export default function App() {
 
             <div className="path-import">
               <label>
-                <span>Bundle folder path</span>
+                <span>Bundle folder</span>
                 <input
-                  value={bundleFolderPath}
-                  onChange={(e) => setBundleFolderPath(e.target.value)}
-                  placeholder="C:\path\to\contract_bundle_v1"
+                  ref={bundleFolderRef}
+                  type="file"
+                  webkitdirectory="true"
+                  directory=""
+                  multiple
+                  onChange={(e) => uploadFolderFiles(e.target.files, "/api/import-folder-upload", "Bundle folder import")}
                 />
               </label>
-              <button onClick={importFolder} disabled={busy || !bridgeOk}>Import Bundle Folder</button>
             </div>
 
             <div className="path-import">
               <label>
-                <span>Repo folder path</span>
+                <span>Repo folder</span>
                 <input
-                  value={repoScanPath}
-                  onChange={(e) => setRepoScanPath(e.target.value)}
-                  placeholder="C:\path\to\repo"
+                  ref={repoFolderRef}
+                  type="file"
+                  webkitdirectory="true"
+                  directory=""
+                  multiple
+                  onChange={(e) => uploadFolderFiles(e.target.files, "/api/import-repo-upload", "Repo scan")}
                 />
               </label>
-              <button onClick={scanRepo} disabled={busy || !bridgeOk}>Scan Repo</button>
             </div>
 
             <div className={source ? "notice good" : "notice"}>

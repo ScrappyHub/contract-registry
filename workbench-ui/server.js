@@ -343,6 +343,149 @@ app.post("/api/import-any-repo", (req, res) => {
     return res.status(400).json({ ok: false, error: err.message });
   }
 });
+function safeRelPath(input) {
+  const rel = String(input || "").replaceAll("\\", "/");
+  if (!rel || rel.includes("..") || path.isAbsolute(rel)) {
+    throw new Error("Unsafe uploaded path.");
+  }
+  return rel;
+}
+
+function shouldSkipUploadedRepoFile(rel) {
+  const parts = rel.split("/");
+  const blocked = new Set([
+    ".git", "node_modules", "dist", "build", ".next", ".vite",
+    "target", "bin", "obj", "__pycache__", ".venv", "venv",
+    "proofs", "packets", "registry", "workbench"
+  ]);
+
+  return parts.some((p) => blocked.has(p));
+}
+
+function writeUploadedFilesToTemp(files, tempRoot) {
+  clearDir(tempRoot);
+
+  for (const file of files) {
+    const rel = safeRelPath(file.originalname);
+    const outPath = path.join(tempRoot, rel);
+    ensureDir(path.dirname(outPath));
+    fs.writeFileSync(outPath, file.buffer);
+  }
+}
+
+function createBundleFromUploadedRepo(files, workspace) {
+  if (!files || files.length === 0) throw new Error("No repo files selected.");
+
+  const inputRoot = path.join(workspace, "input", "contract");
+  const kept = [];
+
+  for (const file of files) {
+    const rel = safeRelPath(file.originalname);
+
+    if (shouldSkipUploadedRepoFile(rel)) continue;
+    if (file.size > 1024 * 1024) continue;
+
+    kept.push({
+      path: rel,
+      bytes: file.size,
+      sha256: crypto.createHash("sha256").update(file.buffer).digest("hex")
+    });
+  }
+
+  kept.sort((a, b) => a.path.localeCompare(b.path));
+
+  const rootName = kept[0]?.path?.split("/")?.[0] || "uploaded.repo";
+  const safeName = rootName.toLowerCase().replace(/[^a-z0-9]+/g, ".").replace(/^\.+|\.+$/g, "") || "uploaded.repo";
+  const contractKey = safeName + ".contract.v1";
+  const sourceDigest = crypto.createHash("sha256").update(JSON.stringify(kept)).digest("hex");
+
+  ensureDir(path.join(workspace, "input"));
+  clearDir(inputRoot);
+  ensureDir(path.join(inputRoot, "overlays", "policy"));
+  ensureDir(path.join(inputRoot, "overlays", "schema"));
+
+  writeJson(path.join(inputRoot, "manifest.json"), {
+    bundle_schema: "contract_registry.repo_upload_bundle.v1",
+    contract_key: contractKey,
+    version_label: "repo-upload-v1",
+    source_kind: "repo_upload",
+    source_file_count: kept.length,
+    source_digest_sha256: sourceDigest
+  });
+
+  writeJson(path.join(inputRoot, "contract.json"), {
+    contract_key: contractKey,
+    title: safeName,
+    description: "Generated from selected local repo folder.",
+    source_kind: "repo_upload"
+  });
+
+  writeJson(path.join(inputRoot, "version.json"), {
+    contract_key: contractKey,
+    version_label: "repo-upload-v1",
+    version_no: 1,
+    status: "draft",
+    source_digest_sha256: sourceDigest
+  });
+
+  writeJson(path.join(inputRoot, "source_inventory.json"), {
+    file_count: kept.length,
+    files: kept
+  });
+
+  return {
+    ok: true,
+    token: "SOURCE_READY",
+    inputRoot,
+    summary: validateBundle(inputRoot),
+    repoIntake: {
+      fileCount: kept.length,
+      sourceDigestSha256: sourceDigest
+    }
+  };
+}
+
+app.post("/api/import-folder-upload", upload.array("files", 2000), (req, res) => {
+  let tempRoot = "";
+  try {
+    const workspace = req.body?.workspace;
+    if (!workspace) throw new Error("Workspace is missing.");
+    if (!req.files || req.files.length === 0) throw new Error("No folder files selected.");
+
+    tempRoot = path.join(workspace, "_tmp_folder_upload_" + Date.now().toString());
+    writeUploadedFilesToTemp(req.files, tempRoot);
+
+    const bundleRoot = findBundleRoot(tempRoot);
+    const inputRoot = path.join(workspace, "input", "contract");
+
+    ensureDir(path.join(workspace, "input"));
+    clearDir(inputRoot);
+    copyDir(bundleRoot, inputRoot);
+
+    const result = {
+      ok: true,
+      token: "SOURCE_READY",
+      inputRoot,
+      summary: validateBundle(inputRoot)
+    };
+
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+    return res.json(result);
+  } catch (err) {
+    if (tempRoot && fs.existsSync(tempRoot)) fs.rmSync(tempRoot, { recursive: true, force: true });
+    return res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+app.post("/api/import-repo-upload", upload.array("files", 5000), (req, res) => {
+  try {
+    const workspace = req.body?.workspace;
+    if (!workspace) throw new Error("Workspace is missing.");
+    return res.json(createBundleFromUploadedRepo(req.files, workspace));
+  } catch (err) {
+    return res.status(400).json({ ok: false, error: err.message });
+  }
+});
 app.post("/api/open-path", (req, res) => {
   try {
     const targetPath = req.body?.targetPath;
