@@ -495,17 +495,24 @@ export default function App() {
   }
 
   async function runAll() {
-    if (!source) {
-      setError("Run All failed: choose a source first.");
+    if (!bridgeOk) {
       setStatus("Needs attention");
+      setError("Run All failed: local bridge is not connected.");
+      return;
+    }
+
+    if (!source) {
+      setStatus("Needs attention");
+      setError("Run All failed: choose or scan a source first.");
       return;
     }
 
     setBusy(true);
+    setStatus("Running full package workflow...");
     setError("");
     setUpload(null);
-    setStatus("Building package...");
-    setLog("");
+    setHistoryResult(null);
+    setLog("RUN_ALL_START\\n");
 
     let full = "";
     let nextExportDir = "";
@@ -517,26 +524,39 @@ export default function App() {
         body: JSON.stringify({ repoRoot, workspace })
       });
 
-      if (!buildRes.body) throw new Error("Build response stream missing.");
+      if (!buildRes.ok) {
+        const text = await buildRes.text();
+        throw new Error("Build request failed: " + text);
+      }
+
+      if (!buildRes.body) {
+        throw new Error("Build response stream missing.");
+      }
 
       const reader = buildRes.body.getReader();
       const decoder = new TextDecoder();
 
       while (true) {
         const item = await reader.read();
-        if (item.done) break;
+
+        if (item.done) {
+          break;
+        }
+
         const chunk = decoder.decode(item.value, { stream: true });
         full += chunk;
         setLog((prev) => prev + chunk);
       }
 
       if (!full.includes("WORKBENCH_FULL_PIPELINE_GREEN")) {
-        throw new Error("Build finished, but the green success token was not found. Open technical details.");
+        throw new Error("Build did not finish green. Open verification log.");
       }
 
-      nextExportDir = after("EVIDENCE_EXPORT_DIR:", full);
+      const exportMatch = full.match(/EVIDENCE_EXPORT_DIR:\\s*(.+)/);
+      nextExportDir = exportMatch ? exportMatch[1].trim() : "";
+
       if (!nextExportDir) {
-        throw new Error("Build finished, but no export folder was found.");
+        throw new Error("Could not find export folder in build output.");
       }
 
       setStatus("Creating upload bundle...");
@@ -548,20 +568,24 @@ export default function App() {
       });
 
       const uploadData = await uploadRes.json();
-      if (!uploadData.ok) throw new Error(uploadData.error);
+
+      if (!uploadData.ok) {
+        throw new Error(uploadData.error || "Upload bundle creation failed.");
+      }
 
       setUpload(uploadData);
 
       try {
-        await recordPackageHistory(nextExportDir, uploadData.zipPath || "");
+        const historyData = await recordPackageHistory(nextExportDir, uploadData.zipPath || "");
+        setHistoryResult(historyData);
       } catch (historyErr) {
-        setError("Upload bundle created, but package history failed: " + historyErr.message);
+        setError("Upload bundle created, but history recording failed: " + historyErr.message);
       }
 
       setStatus("Upload bundle ready");
     } catch (e) {
       setStatus("Needs attention");
-      setError(friendly("Run All", e));
+      setError("Run All failed: " + (e?.message || String(e)));
     } finally {
       setBusy(false);
     }
