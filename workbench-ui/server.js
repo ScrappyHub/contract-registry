@@ -964,7 +964,98 @@ app.post("/api/open-path", async (req, res) => {
       error: err.message
     });
   }
-});app.post("/api/create-upload-bundle", (req, res) => {
+});
+function readJsonSafe(p) {
+  if (!fs.existsSync(p)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(p, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function historyPathFor(workspace) {
+  return path.join(workspace, "history", "package_history.json");
+}
+
+function loadPackageHistory(workspace) {
+  const p = historyPathFor(workspace);
+
+  const data = readJsonSafe(p);
+
+  if (data && Array.isArray(data.entries)) {
+    return data;
+  }
+
+  return {
+    schema: "contract_registry.package_history.v1",
+    entries: []
+  };
+}
+
+function savePackageHistory(workspace, history) {
+  const p = historyPathFor(workspace);
+
+  ensureDir(path.dirname(p));
+
+  writeJson(p, history);
+}
+
+app.post("/api/record-package-history", (req, res) => {
+  try {
+
+    const workspace = req.body?.workspace;
+    const exportDir = req.body?.exportDir;
+
+    if (!workspace) {
+      throw new Error("Workspace is required.");
+    }
+
+    if (!exportDir) {
+      throw new Error("Export folder is required.");
+    }
+
+    const manifest =
+      readJsonSafe(path.join(exportDir, "manifest.json")) || {};
+
+    const history = loadPackageHistory(workspace);
+
+    const entry = {
+      schema: "contract_registry.package_history_entry.v1",
+      recorded_utc: new Date().toISOString(),
+      contract_key: manifest.contract_key || "unknown.contract",
+      version_label: manifest.version_label || "unknown",
+      source_digest_sha256:
+        manifest.source_digest_sha256 || "",
+      source_file_count:
+        manifest.source_file_count || 0,
+      export_dir: exportDir
+    };
+
+    history.entries.push(entry);
+
+    history.entries = history.entries.slice(-50);
+
+    savePackageHistory(workspace, history);
+
+    return res.json({
+      ok: true,
+      token: "PACKAGE_HISTORY_RECORDED",
+      entry,
+      history_count: history.entries.length
+    });
+
+  } catch (err) {
+
+    return res.status(400).json({
+      ok: false,
+      error: err.message
+    });
+
+  }
+});
+
+app.post("/api/create-upload-bundle", (req, res) => {
   try {
     const exportDir = req.body?.exportDir;
     if (!exportDir || !fs.existsSync(exportDir)) throw new Error("No export folder exists yet.");
