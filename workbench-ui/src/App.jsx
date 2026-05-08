@@ -92,6 +92,7 @@ export default function App() {
   const [showTech, setShowTech] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [intakeMeta, setIntakeMeta] = useState(null);
+  const [historyResult, setHistoryResult] = useState(null);
   const [exportFiles, setExportFiles] = useState(null);
   const [selectedExportFile, setSelectedExportFile] = useState("");
   const [openNotice, setOpenNotice] = useState("");
@@ -153,6 +154,7 @@ export default function App() {
     setSelectedExportFile("");
     setShowPreview(false);
     setIntakeMeta(null);
+    setHistoryResult(null);
   }
 
   function fail(message) {
@@ -392,6 +394,13 @@ export default function App() {
       if (!data.ok) throw new Error(data.error);
 
       setUpload(data);
+
+      try {
+        await recordPackageHistory(exportDir, data.zipPath || "");
+      } catch (historyErr) {
+        setError("Upload bundle created, but package history failed: " + historyErr.message);
+      }
+
       setStatus("Upload bundle ready");
     } catch (e) {
       setStatus("Needs attention");
@@ -467,6 +476,24 @@ export default function App() {
     }
   }
 
+  async function recordPackageHistory(nextExportDir, nextUploadPath = "") {
+    const res = await fetch(API + "/api/record-package-history", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        workspace,
+        exportDir: nextExportDir,
+        uploadZipPath: nextUploadPath
+      })
+    });
+
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || "Package history failed.");
+
+    setHistoryResult(data);
+    return data;
+  }
+
   async function runAll() {
     if (!source) {
       setError("Run All failed: choose a source first.");
@@ -524,6 +551,13 @@ export default function App() {
       if (!uploadData.ok) throw new Error(uploadData.error);
 
       setUpload(uploadData);
+
+      try {
+        await recordPackageHistory(nextExportDir, uploadData.zipPath || "");
+      } catch (historyErr) {
+        setError("Upload bundle created, but package history failed: " + historyErr.message);
+      }
+
       setStatus("Upload bundle ready");
     } catch (e) {
       setStatus("Needs attention");
@@ -688,6 +722,43 @@ export default function App() {
                   <span>Ready for review or upload packaging.</span>
                 </div>
 
+                {historyResult && (
+                  <div className="diff-panel">
+                    <h3>Version History</h3>
+                    <div className="diff-grid">
+                      <div>
+                        <span>History entries</span>
+                        <strong>{historyResult.history_count || 1}</strong>
+                      </div>
+
+                      <div>
+                        <span>Current package</span>
+                        <strong>{historyResult.entry?.contract_key || displayedContractKey}</strong>
+                      </div>
+
+                      <div>
+                        <span>Files scanned</span>
+                        <strong>{historyResult.entry?.source_file_count || displayedFileCount}</strong>
+                      </div>
+
+                      <div>
+                        <span>Recorded</span>
+                        <strong>{historyResult.token || "-"}</strong>
+                      </div>
+                    </div>
+
+                    {!historyResult.diff && (
+                      <p className="diff-note">First recorded package for this workspace. Future runs will show changes here.</p>
+                    )}
+
+                    {historyResult.diff && (
+                      <div className="diff-note">
+                        Previous package found. Diff summary will expand in the next slice.
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="action-row">
                   <button onClick={() => openPath(exportDir)}>Open Export Folder</button>
                   <button onClick={readExportFiles}>Preview Package</button>
@@ -791,7 +862,7 @@ export default function App() {
                       <div className={"clause-card " + (clause.severity || "info")} key={index}>
                         <div>
                           <strong>{clause.title}</strong>
-                          <span>{clause.type} · {clause.severity}</span>
+                          <span>{clause.type} Â· {clause.severity}</span>
                         </div>
 
                         {(clause.evidence || []).length > 0 && (
@@ -816,12 +887,12 @@ export default function App() {
 
                   <div>
                     <span>Top extensions</span>
-                    <p>{projectSummary.topExt.map(([k,v]) => `${k} ${v}`).join(" ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ") || "-"}</p>
+                    <p>{projectSummary.topExt.map(([k,v]) => `${k} ${v}`).join(" ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ") || "-"}</p>
                   </div>
 
                   <div>
                     <span>Top folders</span>
-                    <p>{projectSummary.topFolders.map(([k,v]) => `${k} ${v}`).join(" ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ") || "-"}</p>
+                    <p>{projectSummary.topFolders.map(([k,v]) => `${k} ${v}`).join(" ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ") || "-"}</p>
                   </div>
                 </div>
               )}

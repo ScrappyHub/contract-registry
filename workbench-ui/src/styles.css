@@ -631,3 +631,45 @@ pre {
   margin: 4px 0;
   overflow-wrap: anywhere;
 }
+
+.diff-panel {
+  margin: 16px 0;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.diff-panel h3 {
+  margin: 0 0 12px 0;
+}
+
+.diff-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.diff-grid div {
+  background: #111827;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 12px;
+  display: grid;
+  gap: 5px;
+}
+
+.diff-grid span {
+  color: #cbd5e1;
+  font-size: 12px;
+}
+
+.diff-grid strong {
+  color: #86efac;
+  overflow-wrap: anywhere;
+}
+
+.diff-note {
+  margin: 12px 0 0 0;
+  color: #cbd5e1;
+}
