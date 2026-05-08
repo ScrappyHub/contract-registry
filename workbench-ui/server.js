@@ -1001,6 +1001,33 @@ function savePackageHistory(workspace, history) {
   writeJson(p, history);
 }
 
+
+function diffArraySet(prev = [], next = []) {
+  const a = new Set(prev || []);
+  const b = new Set(next || []);
+  return {
+    added: [...b].filter(x => !a.has(x)).sort(),
+    removed: [...a].filter(x => !b.has(x)).sort()
+  };
+}
+
+function makePackageDiff(prev, next) {
+  if (!prev || !next) return null;
+
+  return {
+    schema: "contract_registry.package_diff.v1",
+    source_digest_changed: prev.source_digest_sha256 !== next.source_digest_sha256,
+    source_file_delta: (next.source_file_count || 0) - (prev.source_file_count || 0),
+    clause_count_delta: (next.clause_count || 0) - (prev.clause_count || 0),
+    languages: diffArraySet(prev.languages, next.languages),
+    package_managers: diffArraySet(prev.package_managers, next.package_managers),
+    dependency_signals: diffArraySet(prev.dependency_signals, next.dependency_signals),
+    deployment_hints: diffArraySet(prev.deployment_hints, next.deployment_hints),
+    exported_surfaces: diffArraySet(prev.exported_surfaces, next.exported_surfaces),
+    clause_types: diffArraySet(prev.clause_types, next.clause_types)
+  };
+}
+
 app.post("/api/record-package-history", (req, res) => {
   try {
 
@@ -1029,8 +1056,21 @@ app.post("/api/record-package-history", (req, res) => {
         manifest.source_digest_sha256 || "",
       source_file_count:
         manifest.source_file_count || 0,
-      export_dir: exportDir
+      export_dir: exportDir,
+      repo_type: (readJsonSafe(path.join(workspace, "input", "contract", "repo_intelligence.json")) || {}).repo_type || "unknown",
+      languages: (readJsonSafe(path.join(workspace, "input", "contract", "repo_intelligence.json")) || {}).languages || [],
+      package_managers: (readJsonSafe(path.join(workspace, "input", "contract", "repo_intelligence.json")) || {}).package_managers || [],
+      dependency_signals: (readJsonSafe(path.join(workspace, "input", "contract", "repo_intelligence.json")) || {}).dependency_signals || [],
+      deployment_hints: (readJsonSafe(path.join(workspace, "input", "contract", "repo_intelligence.json")) || {}).deployment_hints || [],
+      exported_surfaces: (readJsonSafe(path.join(workspace, "input", "contract", "repo_intelligence.json")) || {}).exported_surfaces || [],
+      clause_count: (readJsonSafe(path.join(workspace, "input", "contract", "technical_clauses.json")) || {}).clause_count || 0,
+      clause_types: Array.isArray((readJsonSafe(path.join(workspace, "input", "contract", "technical_clauses.json")) || {}).clauses)
+        ? (readJsonSafe(path.join(workspace, "input", "contract", "technical_clauses.json")) || {}).clauses.map(c => c.type).sort()
+        : []
     };
+
+    const previous = history.entries.length ? history.entries[history.entries.length - 1] : null;
+    const diff = previous ? makePackageDiff(previous, entry) : null;
 
     history.entries.push(entry);
 
@@ -1042,6 +1082,7 @@ app.post("/api/record-package-history", (req, res) => {
       ok: true,
       token: "PACKAGE_HISTORY_RECORDED",
       entry,
+      diff,
       history_count: history.entries.length
     });
 
