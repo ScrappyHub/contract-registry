@@ -11,6 +11,15 @@ function done(step, log) {
   return log.includes("STEP_OK: " + step);
 }
 
+function technicalClauses(files) {
+  try {
+    const raw = files?.["technical_clauses.json"];
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 function repoIntelligence(files) {
   try {
     const raw = files?.["repo_intelligence.json"];
@@ -99,6 +108,7 @@ export default function App() {
   const ready = log.includes("WORKBENCH_FULL_PIPELINE_GREEN");
   const projectSummary = inventorySummary(exportFiles);
   const intelligence = repoIntelligence(exportFiles);
+  const clauses = technicalClauses(exportFiles);
   const manifestText = exportFiles?.["manifest.json"] || "";
   let manifestSummary = null;
   try {
@@ -771,6 +781,32 @@ export default function App() {
                 </div>
               )}
 
+              {clauses && (
+                <div className="clauses-panel">
+                  <h3>Contract Clauses</h3>
+                  <p>{clauses.clause_count || 0} machine-readable clauses generated from repo intelligence.</p>
+
+                  <div className="clauses-list">
+                    {(clauses.clauses || []).map((clause, index) => (
+                      <div className={"clause-card " + (clause.severity || "info")} key={index}>
+                        <div>
+                          <strong>{clause.title}</strong>
+                          <span>{clause.type} · {clause.severity}</span>
+                        </div>
+
+                        {(clause.evidence || []).length > 0 && (
+                          <ul>
+                            {(clause.evidence || []).slice(0, 5).map((item, i) => (
+                              <li key={i}>{item}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {projectSummary && (
                 <div className="project-summary">
                   <div>
@@ -780,12 +816,12 @@ export default function App() {
 
                   <div>
                     <span>Top extensions</span>
-                    <p>{projectSummary.topExt.map(([k,v]) => `${k} ${v}`).join(" ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ") || "-"}</p>
+                    <p>{projectSummary.topExt.map(([k,v]) => `${k} ${v}`).join(" ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ") || "-"}</p>
                   </div>
 
                   <div>
                     <span>Top folders</span>
-                    <p>{projectSummary.topFolders.map(([k,v]) => `${k} ${v}`).join(" ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ") || "-"}</p>
+                    <p>{projectSummary.topFolders.map(([k,v]) => `${k} ${v}`).join(" ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ") || "-"}</p>
                   </div>
                 </div>
               )}

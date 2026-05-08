@@ -568,3 +568,66 @@ pre {
   margin: 6px 0;
   color: #fef3c7;
 }
+
+.clauses-panel {
+  margin: 16px 0;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.clauses-panel h3 {
+  margin: 0 0 8px 0;
+}
+
+.clauses-panel > p {
+  color: #cbd5e1;
+  margin: 0 0 12px 0;
+}
+
+.clauses-list {
+  display: grid;
+  gap: 10px;
+}
+
+.clause-card {
+  background: #111827;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.clause-card.review {
+  border-color: #2563eb;
+}
+
+.clause-card.warning {
+  border-color: #ca8a04;
+}
+
+.clause-card.info {
+  border-color: #334155;
+}
+
+.clause-card strong {
+  display: block;
+  color: #f8fafc;
+  margin-bottom: 4px;
+}
+
+.clause-card span {
+  color: #cbd5e1;
+  font-size: 12px;
+}
+
+.clause-card ul {
+  margin: 10px 0 0 18px;
+  color: #e5e7eb;
+  padding: 0;
+}
+
+.clause-card li {
+  margin: 4px 0;
+  overflow-wrap: anywhere;
+}
