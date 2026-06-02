@@ -289,7 +289,7 @@ $Receipt = [ordered]@{
   file_count = $Inventory.Count
 }
 
-$ReceiptLine = To-JsonStable $Receipt
+$ReceiptLine = ($Receipt | ConvertTo-Json -Depth 20 -Compress)
 Add-Content -LiteralPath $ReceiptPath -Value $ReceiptLine -Encoding UTF8
 
 Write-Host ("REPORT: " + $ReportPath)
