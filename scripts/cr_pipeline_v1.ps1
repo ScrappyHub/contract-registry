@@ -17,25 +17,53 @@ function Write-Utf8NoBomLf {
   [IO.File]::WriteAllText($Path,$Text,[Text.UTF8Encoding]::new($false))
 }
 
-function Run-Step {
-  param(
-    [string]$Name,
-    [string]$Script,
-    [string[]]$Args
-  )
+function Run-ShadowStep {
+  param([string]$Script,[string]$Repo)
 
-  Write-Host ("PIPELINE_STEP_START: " + $Name) -ForegroundColor Cyan
+  Write-Host "PIPELINE_STEP_START: shadow_profile" -ForegroundColor Cyan
 
-  $Out = & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $Script @Args 2>&1
+  $Out = & powershell.exe `
+    -NoProfile `
+    -NonInteractive `
+    -ExecutionPolicy Bypass `
+    -File $Script `
+    -TargetRepo $Repo 2>&1
+
   $Exit = $LASTEXITCODE
 
   foreach($Line in @($Out)){ Write-Host $Line }
 
   if($Exit -ne 0){
-    throw ("PIPELINE_STEP_FAIL: " + $Name)
+    throw "PIPELINE_STEP_FAIL: shadow_profile"
   }
 
-  Write-Host ("PIPELINE_STEP_OK: " + $Name) -ForegroundColor Green
+  Write-Host "PIPELINE_STEP_OK: shadow_profile" -ForegroundColor Green
+
+  return @($Out)
+}
+
+function Run-DailyStep {
+  param([string]$Script,[string]$Repo,[string]$ReportDate)
+
+  Write-Host "PIPELINE_STEP_START: daily_report" -ForegroundColor Cyan
+
+  $Out = & powershell.exe `
+    -NoProfile `
+    -NonInteractive `
+    -ExecutionPolicy Bypass `
+    -File $Script `
+    -TargetRepo $Repo `
+    -Date $ReportDate 2>&1
+
+  $Exit = $LASTEXITCODE
+
+  foreach($Line in @($Out)){ Write-Host $Line }
+
+  if($Exit -ne 0){
+    throw "PIPELINE_STEP_FAIL: daily_report"
+  }
+
+  Write-Host "PIPELINE_STEP_OK: daily_report" -ForegroundColor Green
 
   return @($Out)
 }
@@ -47,8 +75,8 @@ $DailyScript = Join-Path $PSScriptRoot "cr_daily_report_v1.ps1"
 if(-not (Test-Path -LiteralPath $ShadowScript)){ throw "MISSING_SHADOW_SCRIPT" }
 if(-not (Test-Path -LiteralPath $DailyScript)){ throw "MISSING_DAILY_SCRIPT" }
 
-$ShadowOut = Run-Step -Name "shadow_profile" -Script $ShadowScript -Args @("-TargetRepo",$TargetRepo)
-$DailyOut = Run-Step -Name "daily_report" -Script $DailyScript -Args @("-TargetRepo",$TargetRepo,"-Date",$Date)
+$ShadowOut = Run-ShadowStep -Script $ShadowScript -Repo $TargetRepo
+$DailyOut = Run-DailyStep -Script $DailyScript -Repo $TargetRepo -ReportDate $Date
 
 $Snapshot = ""
 $Diff = ""
