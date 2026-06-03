@@ -20,6 +20,33 @@ function Sha256File {
   return (Get-FileHash -Algorithm SHA256 -LiteralPath $Path).Hash.ToLowerInvariant()
 }
 
+function Sha256Text {
+  param([string]$Text)
+
+  $sha = [System.Security.Cryptography.SHA256]::Create()
+
+  try {
+    $bytes = [System.Text.UTF8Encoding]::new($false).GetBytes($Text)
+    return ([System.BitConverter]::ToString($sha.ComputeHash($bytes))).Replace("-","").ToLowerInvariant()
+  } finally {
+    $sha.Dispose()
+  }
+}
+
+function StableReceiptSignature {
+  param($Receipt)
+
+  $Stable = [ordered]@{
+    schema = "contract_registry.watch_semantic_signature.v1"
+    repo_name = $Receipt.repo_name
+    severity = $Receipt.severity
+    risk_score = $Receipt.risk_score
+    file_count = $Receipt.file_count
+  }
+
+  return Sha256Text (To-JsonStable $Stable)
+}
+
 function Run-ShadowProfile {
   param([string]$Repo)
 
@@ -142,19 +169,7 @@ while($true){
 
   if($Receipt){
 
-    $ReceiptJson = To-JsonStable $Receipt
-
-    $Temp = Join-Path $env:TEMP "cr_watch_receipt.json"
-
-    [System.IO.File]::WriteAllText(
-      $Temp,
-      $ReceiptJson,
-      [System.Text.UTF8Encoding]::new($false)
-    )
-
-    $ReceiptHash = Sha256File $Temp
-
-    Remove-Item $Temp -Force -ErrorAction SilentlyContinue
+    $ReceiptHash = StableReceiptSignature -Receipt $Receipt
 
     $Changed = $ReceiptHash -ne $LastReceiptHash
 
@@ -163,7 +178,7 @@ while($true){
       utc = $Utc
       repo = $TargetRepo
       changed = $Changed
-      receipt_hash = $ReceiptHash
+      stable_state_hash = $ReceiptHash
       severity = $Receipt.severity
       risk_score = $Receipt.risk_score
       file_count = $Receipt.file_count
