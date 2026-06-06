@@ -22,12 +22,52 @@ function Show-Help {
   Write-Host "  init -Intent shadow -TargetRepo <path>"
   Write-Host "  run  -TargetRepo <path> [-Date yyyy-MM-dd]"
   Write-Host "  watch -TargetRepo <path> [-IntervalSeconds 60]"
+  Write-Host "  status -TargetRepo <path>"
   Write-Host ""
 }
 
 function Ensure-Dir {
   param([string]$Path)
   New-Item -ItemType Directory -Force -Path $Path | Out-Null
+}
+
+function Read-JsonSafe {
+  param([string]$Path)
+
+  if(-not (Test-Path -LiteralPath $Path)){
+    return $null
+  }
+
+  try {
+    return (Get-Content -Raw -LiteralPath $Path | ConvertFrom-Json)
+  } catch {
+    return $null
+  }
+}
+
+function Read-LastNdjsonSafe {
+  param([string]$Path)
+
+  if(-not (Test-Path -LiteralPath $Path)){
+    return $null
+  }
+
+  $Lines = Get-Content -LiteralPath $Path
+
+  for($i = @($Lines).Count - 1; $i -ge 0; $i--){
+    $Line = ([string]$Lines[$i]).Trim()
+
+    if([string]::IsNullOrWhiteSpace($Line)){ continue }
+    if(-not $Line.StartsWith("{")){ continue }
+
+    try {
+      return ($Line | ConvertFrom-Json)
+    } catch {
+      continue
+    }
+  }
+
+  return $null
 }
 
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -98,6 +138,71 @@ switch($Command.ToLowerInvariant()){
       -Date $Date
 
     exit $LASTEXITCODE
+  }
+
+  "status" {
+    if(-not (Test-Path -LiteralPath $TargetRepo -PathType Container)){
+      throw "TARGET_REPO_NOT_FOUND: $TargetRepo"
+    }
+
+    $RepoName = Split-Path -Leaf (Resolve-Path -LiteralPath $TargetRepo)
+    $ProfileRoot = Join-Path $TargetRepo ("runtime\shadow_profiles\" + $RepoName)
+
+    $IntelPath = Join-Path $ProfileRoot "intelligence\intelligence.json"
+    $IntelReceiptPath = Join-Path $ProfileRoot "intelligence\intelligence_receipt.json"
+    $ShadowReceiptPath = Join-Path $ProfileRoot "receipts\shadow_profile.ndjson"
+    $PipelineReceiptPath = Join-Path $TargetRepo "runtime\pipeline\cr_pipeline_receipts.ndjson"
+
+    $Intel = Read-JsonSafe -Path $IntelPath
+    $IntelReceipt = Read-JsonSafe -Path $IntelReceiptPath
+    $ShadowReceipt = Read-LastNdjsonSafe -Path $ShadowReceiptPath
+    $PipelineReceipt = Read-LastNdjsonSafe -Path $PipelineReceiptPath
+
+    Write-Host "Contract Registry Status" -ForegroundColor Cyan
+    Write-Host ("Repo: " + $RepoName)
+    Write-Host ("Target: " + (Resolve-Path -LiteralPath $TargetRepo).Path)
+    Write-Host ""
+
+    if($Intel){
+      Write-Host "Intelligence" -ForegroundColor Green
+      Write-Host ("  activity_level: " + $Intel.activity_level)
+      Write-Host ("  risk_trend: " + $Intel.risk_trend)
+      Write-Host ("  max_risk_score: " + $Intel.max_risk_score)
+      Write-Host ("  avg_risk_score: " + $Intel.avg_risk_score)
+      Write-Host ("  semantic_change_ticks: " + $Intel.semantic_change_tick_count)
+      Write-Host ("  stable_ticks: " + $Intel.stable_tick_count)
+      Write-Host ("  latest_file_count: " + $Intel.latest_file_count)
+      Write-Host ""
+    } else {
+      Write-Host "Intelligence: missing. Run .\cr.ps1 run first." -ForegroundColor Yellow
+      Write-Host ""
+    }
+
+    if($ShadowReceipt){
+      Write-Host "Latest Shadow Receipt" -ForegroundColor Green
+      Write-Host ("  severity: " + $ShadowReceipt.severity)
+      Write-Host ("  risk_score: " + $ShadowReceipt.risk_score)
+      Write-Host ("  file_count: " + $ShadowReceipt.file_count)
+      Write-Host ("  report: " + $ShadowReceipt.report)
+      Write-Host ""
+    }
+
+    if($IntelReceipt){
+      Write-Host "Intelligence Report" -ForegroundColor Green
+      Write-Host ("  report: " + $IntelReceipt.report)
+      Write-Host ("  receipt: " + $IntelReceiptPath)
+      Write-Host ""
+    }
+
+    if($PipelineReceipt){
+      Write-Host "Pipeline" -ForegroundColor Green
+      Write-Host ("  status: " + $PipelineReceipt.status)
+      Write-Host ("  receipt: " + $PipelineReceiptPath)
+      Write-Host ""
+    }
+
+    Write-Host "CR_STATUS_OK" -ForegroundColor Green
+    exit 0
   }
 
   "watch" {
