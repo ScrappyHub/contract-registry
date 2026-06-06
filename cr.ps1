@@ -152,11 +152,15 @@ switch($Command.ToLowerInvariant()){
     $IntelReceiptPath = Join-Path $ProfileRoot "intelligence\intelligence_receipt.json"
     $ShadowReceiptPath = Join-Path $ProfileRoot "receipts\shadow_profile.ndjson"
     $PipelineReceiptPath = Join-Path $TargetRepo "runtime\pipeline\cr_pipeline_receipts.ndjson"
+    $AlertsPath = Join-Path $ProfileRoot "alerts\alerts.json"
+    $AlertsReceiptPath = Join-Path $ProfileRoot "alerts\alerts_receipt.json"
 
     $Intel = Read-JsonSafe -Path $IntelPath
     $IntelReceipt = Read-JsonSafe -Path $IntelReceiptPath
     $ShadowReceipt = Read-LastNdjsonSafe -Path $ShadowReceiptPath
     $PipelineReceipt = Read-LastNdjsonSafe -Path $PipelineReceiptPath
+    $Alerts = Read-JsonSafe -Path $AlertsPath
+    $AlertsReceipt = Read-JsonSafe -Path $AlertsReceiptPath
 
     Write-Host "Contract Registry Status" -ForegroundColor Cyan
     Write-Host ("Repo: " + $RepoName)
@@ -191,6 +195,21 @@ switch($Command.ToLowerInvariant()){
       Write-Host "Intelligence Report" -ForegroundColor Green
       Write-Host ("  report: " + $IntelReceipt.report)
       Write-Host ("  receipt: " + $IntelReceiptPath)
+      Write-Host ""
+    }
+
+    if($Alerts){
+      Write-Host "Active Alerts" -ForegroundColor Green
+      Write-Host ("  count: " + $Alerts.alert_count)
+
+      foreach($a in @($Alerts.alerts)){
+        Write-Host ("  " + $a.severity + " " + $a.code + " :: " + $a.message)
+      }
+
+      if($AlertsReceipt){
+        Write-Host ("  receipt: " + $AlertsReceiptPath)
+      }
+
       Write-Host ""
     }
 
