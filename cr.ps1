@@ -20,9 +20,11 @@ function Show-Help {
   Write-Host "Commands:"
   Write-Host "  help"
   Write-Host "  init -Intent shadow -TargetRepo <path>"
+  Write-Host "  init -Intent notify -TargetRepo <path>"
   Write-Host "  run  -TargetRepo <path> [-Date yyyy-MM-dd]"
   Write-Host "  watch -TargetRepo <path> [-IntervalSeconds 60]"
   Write-Host "  status -TargetRepo <path>"
+  Write-Host "  notify -TargetRepo <path>"
   Write-Host ""
 }
 
@@ -75,6 +77,7 @@ $Scripts = Join-Path $Root "scripts"
 
 $PipelineScript = Join-Path $Scripts "cr_pipeline_v1.ps1"
 $WatchScript = Join-Path $Scripts "cr_watch_v1.ps1"
+$NotifyScript = Join-Path $Scripts "cr_notify_v1.ps1"
 
 switch($Command.ToLowerInvariant()){
   "help" {
@@ -83,8 +86,10 @@ switch($Command.ToLowerInvariant()){
   }
 
   "init" {
-    if($Intent.ToLowerInvariant() -ne "shadow"){
-      throw "SUPPORTED_INTENT_REQUIRED: shadow"
+    $IntentLower = $Intent.ToLowerInvariant()
+
+    if($IntentLower -notin @("shadow","notify")){
+      throw "SUPPORTED_INTENT_REQUIRED: shadow|notify"
     }
 
     if(-not (Test-Path -LiteralPath $TargetRepo -PathType Container)){
@@ -104,11 +109,12 @@ switch($Command.ToLowerInvariant()){
     $Config = [ordered]@{
       schema = "contract_registry.shadow_init.v1"
       utc = [DateTime]::UtcNow.ToString("o")
-      intent = "shadow"
+      intent = $IntentLower
       target_repo = (Resolve-Path -LiteralPath $TargetRepo).Path
       profile_root = $ProfileRoot
       pipeline = $PipelineScript
       watch = $WatchScript
+      notify = $NotifyScript
     }
 
     $ConfigPath = Join-Path $ProfileRoot "shadow_config.json"
@@ -119,7 +125,13 @@ switch($Command.ToLowerInvariant()){
       [System.Text.UTF8Encoding]::new($false)
     )
 
-    Write-Host "CR_INIT_SHADOW_OK" -ForegroundColor Green
+    if($IntentLower -eq "shadow"){
+      Write-Host "CR_INIT_SHADOW_OK" -ForegroundColor Green
+    } else {
+      Ensure-Dir (Join-Path $ProfileRoot "alerts")
+      Ensure-Dir (Join-Path $ProfileRoot "notify")
+      Write-Host "CR_INIT_NOTIFY_OK" -ForegroundColor Green
+    }
     Write-Host ("CONFIG: " + $ConfigPath)
     exit 0
   }
@@ -222,6 +234,21 @@ switch($Command.ToLowerInvariant()){
 
     Write-Host "CR_STATUS_OK" -ForegroundColor Green
     exit 0
+  }
+
+  "notify" {
+    if(-not (Test-Path -LiteralPath $NotifyScript -PathType Leaf)){
+      throw "MISSING_NOTIFY_SCRIPT"
+    }
+
+    & powershell.exe `
+      -NoProfile `
+      -NonInteractive `
+      -ExecutionPolicy Bypass `
+      -File $NotifyScript `
+      -TargetRepo $TargetRepo
+
+    exit $LASTEXITCODE
   }
 
   "watch" {
