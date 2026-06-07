@@ -25,6 +25,7 @@ function Show-Help {
   Write-Host "  watch -TargetRepo <path> [-IntervalSeconds 60]"
   Write-Host "  status -TargetRepo <path>"
   Write-Host "  notify -TargetRepo <path>"
+  Write-Host "  alerts -TargetRepo <path>"
   Write-Host ""
 }
 
@@ -78,6 +79,7 @@ $Scripts = Join-Path $Root "scripts"
 $PipelineScript = Join-Path $Scripts "cr_pipeline_v1.ps1"
 $WatchScript = Join-Path $Scripts "cr_watch_v1.ps1"
 $NotifyScript = Join-Path $Scripts "cr_notify_v1.ps1"
+$AlertsScript = Join-Path $Scripts "cr_alerts_v1.ps1"
 
 switch($Command.ToLowerInvariant()){
   "help" {
@@ -234,6 +236,21 @@ switch($Command.ToLowerInvariant()){
 
     Write-Host "CR_STATUS_OK" -ForegroundColor Green
     exit 0
+  }
+
+  "alerts" {
+    if(-not (Test-Path -LiteralPath $AlertsScript -PathType Leaf)){
+      throw "MISSING_ALERTS_SCRIPT"
+    }
+
+    & powershell.exe `
+      -NoProfile `
+      -NonInteractive `
+      -ExecutionPolicy Bypass `
+      -File $AlertsScript `
+      -TargetRepo $TargetRepo
+
+    exit $LASTEXITCODE
   }
 
   "notify" {
