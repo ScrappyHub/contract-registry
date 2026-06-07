@@ -144,22 +144,50 @@ function Run-NotifyStep {
   return @($Out)
 }
 
+function Run-BehaviorStep {
+  param([string]$Script,[string]$Repo)
+
+  Write-Host "PIPELINE_STEP_START: behavioral_drift" -ForegroundColor Cyan
+
+  $Out = & powershell.exe `
+    -NoProfile `
+    -NonInteractive `
+    -ExecutionPolicy Bypass `
+    -File $Script `
+    -TargetRepo $Repo 2>&1
+
+  $Exit = $LASTEXITCODE
+
+  foreach($Line in @($Out)){ Write-Host $Line }
+
+  if($Exit -ne 0){
+    throw "PIPELINE_STEP_FAIL: behavioral_drift"
+  }
+
+  Write-Host "PIPELINE_STEP_OK: behavioral_drift" -ForegroundColor Green
+
+  return @($Out)
+}
+
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $ShadowScript = Join-Path $PSScriptRoot "cr_shadow_profile_v1.ps1"
 $DailyScript = Join-Path $PSScriptRoot "cr_daily_report_v1.ps1"
 $IntelScript = Join-Path $PSScriptRoot "cr_intelligence_v1.ps1"
+$BehaviorScript = Join-Path $PSScriptRoot "cr_behavioral_drift_v1.ps1"
 $AlertsScript = Join-Path $PSScriptRoot "cr_alerts_v1.ps1"
 $NotifyScript = Join-Path $PSScriptRoot "cr_notify_v1.ps1"
 
 if(-not (Test-Path -LiteralPath $ShadowScript)){ throw "MISSING_SHADOW_SCRIPT" }
 if(-not (Test-Path -LiteralPath $DailyScript)){ throw "MISSING_DAILY_SCRIPT" }
 if(-not (Test-Path -LiteralPath $IntelScript)){ throw "MISSING_INTELLIGENCE_SCRIPT" }
+if(-not (Test-Path -LiteralPath $BehaviorScript)){ throw "MISSING_BEHAVIORAL_DRIFT_SCRIPT" }
 if(-not (Test-Path -LiteralPath $AlertsScript)){ throw "MISSING_ALERTS_SCRIPT" }
 if(-not (Test-Path -LiteralPath $NotifyScript)){ throw "MISSING_NOTIFY_SCRIPT" }
 
 $ShadowOut = Run-ShadowStep -Script $ShadowScript -Repo $TargetRepo
 $DailyOut = Run-DailyStep -Script $DailyScript -Repo $TargetRepo -ReportDate $Date
 $IntelOut = Run-IntelStep -Script $IntelScript -Repo $TargetRepo
+$BehaviorOut = Run-BehaviorStep -Script $BehaviorScript -Repo $TargetRepo
 $AlertsOut = Run-AlertsStep -Script $AlertsScript -Repo $TargetRepo
 $NotifyOut = Run-NotifyStep -Script $NotifyScript -Repo $TargetRepo
 
@@ -170,13 +198,16 @@ $Receipt = ""
 $Intelligence = ""
 $IntelReport = ""
 $IntelReceipt = ""
+$BehaviorDrift = ""
+$BehaviorReport = ""
+$BehaviorReceipt = ""
 $Alerts = ""
 $AlertsReceipt = ""
 $Notifications = ""
 $LatestNotification = ""
 $NotifyReceipt = ""
 
-foreach($Line in @($ShadowOut + $DailyOut + $IntelOut + $AlertsOut + $NotifyOut)){
+foreach($Line in @($ShadowOut + $DailyOut + $IntelOut + $BehaviorOut + $AlertsOut + $NotifyOut)){
   $S = [string]$Line
   if($S.StartsWith("SNAPSHOT:")){ $Snapshot = $S.Substring(9).Trim() }
   if($S.StartsWith("DIFF:")){ $Diff = $S.Substring(5).Trim() }
@@ -191,16 +222,23 @@ foreach($Line in @($ShadowOut + $DailyOut + $IntelOut + $AlertsOut + $NotifyOut)
     if($S.StartsWith("RECEIPT:")){
     if([string]::IsNullOrWhiteSpace($Receipt)){ $Receipt = $S.Substring(8).Trim() }
     elseif([string]::IsNullOrWhiteSpace($IntelReceipt)){ $IntelReceipt = $S.Substring(8).Trim() }
+    elseif([string]::IsNullOrWhiteSpace($BehaviorReceipt)){ $BehaviorReceipt = $S.Substring(8).Trim() }
     elseif([string]::IsNullOrWhiteSpace($AlertsReceipt)){ $AlertsReceipt = $S.Substring(8).Trim() }
     elseif([string]::IsNullOrWhiteSpace($NotifyReceipt)){ $NotifyReceipt = $S.Substring(8).Trim() }
   }
     if($S.StartsWith("INTELLIGENCE:")){ $Intelligence = $S.Substring(13).Trim() }
-    if($S.StartsWith("ALERTS:")){ $Alerts = $S.Substring(7).Trim() }
+      if($S.StartsWith("DRIFT:") -and $S -like "DRIFT: *behavioral_drift.json"){
+    $BehaviorDrift = $S.Substring(6).Trim()
+  }
+  if($S.StartsWith("REPORT:") -and $S -like "*behavioral_drift_report.md"){
+    $BehaviorReport = $S.Substring(7).Trim()
+  }
+  if($S.StartsWith("ALERTS:")){ $Alerts = $S.Substring(7).Trim() }
   if($S.StartsWith("NOTIFICATIONS:")){ $Notifications = $S.Substring(14).Trim() }
   if($S.StartsWith("LATEST:")){ $LatestNotification = $S.Substring(7).Trim() }
 }
 
-$Required = @($Snapshot,$Diff,$Report,$Receipt,$Intelligence,$IntelReport,$IntelReceipt,$Alerts,$AlertsReceipt,$Notifications,$LatestNotification,$NotifyReceipt)
+$Required = @($Snapshot,$Diff,$Report,$Receipt,$Intelligence,$IntelReport,$IntelReceipt,$BehaviorDrift,$BehaviorReport,$BehaviorReceipt,$Alerts,$AlertsReceipt,$Notifications,$LatestNotification,$NotifyReceipt)
 foreach($Item in $Required){
   if([string]::IsNullOrWhiteSpace($Item)){ throw "PIPELINE_MISSING_OUTPUT_PATH" }
   if(-not (Test-Path -LiteralPath $Item)){ throw ("PIPELINE_OUTPUT_NOT_FOUND: " + $Item) }
@@ -221,6 +259,9 @@ $PipelineReceipt = [ordered]@{
   intelligence = $Intelligence
   intelligence_report = $IntelReport
   intelligence_receipt = $IntelReceipt
+  behavioral_drift = $BehaviorDrift
+  behavioral_drift_report = $BehaviorReport
+  behavioral_drift_receipt = $BehaviorReceipt
   alerts = $Alerts
   alerts_receipt = $AlertsReceipt
   notifications = $Notifications
