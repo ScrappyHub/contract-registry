@@ -168,6 +168,8 @@ switch($Command.ToLowerInvariant()){
     $PipelineReceiptPath = Join-Path $TargetRepo "runtime\pipeline\cr_pipeline_receipts.ndjson"
     $AlertsPath = Join-Path $ProfileRoot "alerts\alerts.json"
     $AlertsReceiptPath = Join-Path $ProfileRoot "alerts\alerts_receipt.json"
+    $BehaviorPath = Join-Path $ProfileRoot "behavioral_drift\behavioral_drift.json"
+    $BehaviorReceiptPath = Join-Path $ProfileRoot "behavioral_drift\behavioral_drift_receipt.json"
 
     $Intel = Read-JsonSafe -Path $IntelPath
     $IntelReceipt = Read-JsonSafe -Path $IntelReceiptPath
@@ -175,6 +177,8 @@ switch($Command.ToLowerInvariant()){
     $PipelineReceipt = Read-LastNdjsonSafe -Path $PipelineReceiptPath
     $Alerts = Read-JsonSafe -Path $AlertsPath
     $AlertsReceipt = Read-JsonSafe -Path $AlertsReceiptPath
+    $Behavior = Read-JsonSafe -Path $BehaviorPath
+    $BehaviorReceipt = Read-JsonSafe -Path $BehaviorReceiptPath
 
     Write-Host "Contract Registry Status" -ForegroundColor Cyan
     Write-Host ("Repo: " + $RepoName)
@@ -209,6 +213,26 @@ switch($Command.ToLowerInvariant()){
       Write-Host "Intelligence Report" -ForegroundColor Green
       Write-Host ("  report: " + $IntelReceipt.report)
       Write-Host ("  receipt: " + $IntelReceiptPath)
+      Write-Host ""
+    }
+
+    if($Behavior){
+      Write-Host "Behavioral Drift" -ForegroundColor Green
+      Write-Host ("  change_count: " + $Behavior.change_count)
+
+      if($Behavior.latest_identity){
+        Write-Host ("  latest_shape: " + $Behavior.latest_identity.shape)
+        Write-Host ("  latest_surfaces: " + (@($Behavior.latest_identity.runtime_surfaces) -join ", "))
+      }
+
+      foreach($d in @($Behavior.changes)){
+        Write-Host ("  " + $d.severity + " " + $d.code)
+      }
+
+      if($BehaviorReceipt){
+        Write-Host ("  receipt: " + $BehaviorReceiptPath)
+      }
+
       Write-Host ""
     }
 
