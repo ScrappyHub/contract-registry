@@ -170,6 +170,8 @@ switch($Command.ToLowerInvariant()){
     $AlertsReceiptPath = Join-Path $ProfileRoot "alerts\alerts_receipt.json"
     $BehaviorPath = Join-Path $ProfileRoot "behavioral_drift\behavioral_drift.json"
     $BehaviorReceiptPath = Join-Path $ProfileRoot "behavioral_drift\behavioral_drift_receipt.json"
+    $IdentityPath = Join-Path $ProfileRoot "identity\repo_identity.json"
+    $IdentityReceiptPath = Join-Path $ProfileRoot "identity\repo_identity_receipt.json"
 
     $Intel = Read-JsonSafe -Path $IntelPath
     $IntelReceipt = Read-JsonSafe -Path $IntelReceiptPath
@@ -179,6 +181,8 @@ switch($Command.ToLowerInvariant()){
     $AlertsReceipt = Read-JsonSafe -Path $AlertsReceiptPath
     $Behavior = Read-JsonSafe -Path $BehaviorPath
     $BehaviorReceipt = Read-JsonSafe -Path $BehaviorReceiptPath
+    $Identity = Read-JsonSafe -Path $IdentityPath
+    $IdentityReceipt = Read-JsonSafe -Path $IdentityReceiptPath
 
     Write-Host "Contract Registry Status" -ForegroundColor Cyan
     Write-Host ("Repo: " + $RepoName)
@@ -213,6 +217,23 @@ switch($Command.ToLowerInvariant()){
       Write-Host "Intelligence Report" -ForegroundColor Green
       Write-Host ("  report: " + $IntelReceipt.report)
       Write-Host ("  receipt: " + $IntelReceiptPath)
+      Write-Host ""
+    }
+
+    if($Identity){
+      Write-Host "Repo Identity" -ForegroundColor Green
+      Write-Host ("  archetype: " + $Identity.archetype)
+      Write-Host ("  confidence: " + $Identity.classification_confidence)
+      Write-Host ("  shape: " + $Identity.shape)
+      Write-Host ("  risk_posture: " + $Identity.risk_posture)
+      Write-Host ("  capabilities: " + (@($Identity.capabilities) -join ", "))
+      Write-Host ("  ecosystems: " + (@($Identity.ecosystems) -join ", "))
+
+      if($IdentityReceipt){
+        Write-Host ("  report: " + $IdentityReceipt.report)
+        Write-Host ("  receipt: " + $IdentityReceiptPath)
+      }
+
       Write-Host ""
     }
 
