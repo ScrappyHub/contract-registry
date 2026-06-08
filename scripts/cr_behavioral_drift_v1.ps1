@@ -117,6 +117,7 @@ $FirstIdentity = Classify-Identity -Snapshot $First
 $LatestIdentity = Classify-Identity -Snapshot $Latest
 
 $Changes = @()
+$DisplayChanges = @()
 
 if($FirstIdentity.shape -ne $LatestIdentity.shape){
   $Changes += [ordered]@{
@@ -165,8 +166,10 @@ if([int]$LatestIdentity.schema_candidate_count -gt [int]$FirstIdentity.schema_ca
   }
 }
 
+$DisplayChanges = @($Changes)
+
 if(@($Changes).Count -eq 0){
-  $Changes += [ordered]@{
+  $DisplayChanges += [ordered]@{
     code = "NO_BEHAVIORAL_DRIFT"
     severity = "INFO"
   }
@@ -181,7 +184,9 @@ $Out = [ordered]@{
   first_identity = $FirstIdentity
   latest_identity = $LatestIdentity
   change_count = @($Changes).Count
-  changes = $Changes
+  display_count = @($DisplayChanges).Count
+changes = $Changes
+  display_changes = $DisplayChanges
 }
 
 $OutPath = Join-Path $DriftRoot "behavioral_drift.json"
@@ -201,7 +206,7 @@ $Report += "- Latest surfaces: $(@($LatestIdentity.runtime_surfaces) -join ', ')
 $Report += ""
 $Report += "## Behavioral Changes"
 
-foreach($c in @($Changes)){
+foreach($c in @($DisplayChanges)){
   $Report += "- $($c.severity) $($c.code)"
 }
 
@@ -215,6 +220,7 @@ $Receipt = [ordered]@{
   drift = $OutPath
   report = $ReportPath
   change_count = @($Changes).Count
+  display_count = @($DisplayChanges).Count
 }
 
 $ReceiptPath = Join-Path $DriftRoot "behavioral_drift_receipt.json"
@@ -225,6 +231,6 @@ Write-Host ("DRIFT: " + $OutPath)
 Write-Host ("REPORT: " + $ReportPath)
 Write-Host ("RECEIPT: " + $ReceiptPath)
 
-foreach($c in @($Changes)){
+foreach($c in @($DisplayChanges)){
   Write-Host ("DRIFT: " + $c.severity + " " + $c.code)
 }
