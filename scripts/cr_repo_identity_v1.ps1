@@ -88,6 +88,46 @@ foreach($s in @($Surfaces)){
 
 $Capabilities = @($Capabilities | Sort-Object -Unique)
 
+$Archetype = "unknown_repository"
+$ClassificationConfidence = 40
+
+if(
+  $Surfaces -contains "supabase_surface" -and
+  $Surfaces -contains "api_surface" -and
+  $Surfaces -contains "schema_surface"
+){
+  $Archetype = "supabase_governed_platform"
+  $ClassificationConfidence = 92
+}
+elseif(
+  $Surfaces -contains "api_surface" -and
+  $Surfaces -contains "schema_surface"
+){
+  $Archetype = "full_stack_service"
+  $ClassificationConfidence = 86
+}
+elseif($Surfaces -contains "api_surface"){
+  $Archetype = "api_service"
+  $ClassificationConfidence = 78
+}
+elseif($Surfaces -contains "schema_surface"){
+  $Archetype = "database_governance_system"
+  $ClassificationConfidence = 74
+}
+elseif($Surfaces -contains "ci_surface"){
+  $Archetype = "automation_or_ci_repo"
+  $ClassificationConfidence = 65
+}
+
+$Ecosystems = @()
+
+if($Surfaces -contains "supabase_surface"){ $Ecosystems += "supabase" }
+if($Surfaces -contains "ci_surface"){ $Ecosystems += "github_actions_or_ci" }
+if($Surfaces -contains "api_surface"){ $Ecosystems += "node_or_server_api" }
+if($Surfaces -contains "schema_surface"){ $Ecosystems += "schema_governance" }
+
+$Ecosystems = @($Ecosystems | Sort-Object -Unique)
+
 $Identity = [ordered]@{
   schema = "contract_registry.repo_identity.v1"
   generated_utc = [DateTime]::UtcNow.ToString("o")
@@ -95,8 +135,11 @@ $Identity = [ordered]@{
   target_repo = (Resolve-Path -LiteralPath $TargetRepo).Path
   intent = if($Config){ [string](Get-Prop -Obj $Config -Name "intent" -Default "shadow") } else { "shadow" }
   shape = $Shape
+  archetype = $Archetype
+  classification_confidence = $ClassificationConfidence
   runtime_surfaces = $Surfaces
   capabilities = $Capabilities
+  ecosystems = $Ecosystems
   risk_posture = $RiskPosture
   max_risk_score = $MaxRisk
   activity_level = [string](Get-Prop -Obj $Intel -Name "activity_level" -Default "unknown")
@@ -121,6 +164,8 @@ $Report += "Generated UTC: $($Identity.generated_utc)"
 $Report += ""
 $Report += "## Identity"
 $Report += "- Shape: $Shape"
+$Report += "- Archetype: $Archetype"
+$Report += "- Classification confidence: $ClassificationConfidence"
 $Report += "- Intent: $($Identity.intent)"
 $Report += "- Risk posture: $RiskPosture"
 $Report += "- Max risk score: $MaxRisk"
@@ -131,6 +176,10 @@ $Report += ""
 $Report += "## Runtime Surfaces"
 foreach($s in @($Surfaces)){ $Report += "- $s" }
 if(@($Surfaces).Count -eq 0){ $Report += "- None" }
+$Report += ""
+$Report += "## Ecosystems"
+foreach($e in @($Ecosystems)){ $Report += "- $e" }
+if(@($Ecosystems).Count -eq 0){ $Report += "- None" }
 $Report += ""
 $Report += "## Capabilities"
 foreach($c in @($Capabilities)){ $Report += "- $c" }
@@ -150,6 +199,8 @@ $Receipt = [ordered]@{
   identity = $IdentityPath
   report = $ReportPath
   shape = $Shape
+  archetype = $Archetype
+  classification_confidence = $ClassificationConfidence
   risk_posture = $RiskPosture
   capability_count = @($Capabilities).Count
 }
@@ -162,4 +213,6 @@ Write-Host ("IDENTITY: " + $IdentityPath)
 Write-Host ("REPORT: " + $ReportPath)
 Write-Host ("RECEIPT: " + $ReceiptPath)
 Write-Host ("SHAPE: " + $Shape)
+Write-Host ("ARCHETYPE: " + $Archetype)
+Write-Host ("CONFIDENCE: " + $ClassificationConfidence)
 Write-Host ("RISK_POSTURE: " + $RiskPosture)
