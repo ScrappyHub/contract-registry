@@ -37,9 +37,11 @@ $RepoName = Split-Path -Leaf (Resolve-Path -LiteralPath $TargetRepo)
 $ProfileRoot = Join-Path $TargetRepo ("runtime\shadow_profiles\" + $RepoName)
 $IntelPath = Join-Path $ProfileRoot "intelligence\intelligence.json"
 $AlertsRoot = Join-Path $ProfileRoot "alerts"
+$BehaviorPath = Join-Path $ProfileRoot "behavioral_drift\behavioral_drift.json"
 New-Item -ItemType Directory -Force -Path $AlertsRoot | Out-Null
 
 $Intel = Read-JsonSafe -Path $IntelPath
+$Behavior = Read-JsonSafe -Path $BehaviorPath
 if($null -eq $Intel){
   throw "INTELLIGENCE_NOT_FOUND_RUN_CR_RUN_FIRST"
 }
@@ -104,12 +106,33 @@ if($Signals){
   }
 }
 
+if($Behavior){
+  foreach($d in @($Behavior.changes)){
+    $DriftCode = [string]$d.code
+    $DriftSeverity = [string]$d.severity
+
+    if([string]::IsNullOrWhiteSpace($DriftCode)){
+      continue
+    }
+
+    if($DriftCode -eq "NO_BEHAVIORAL_DRIFT"){
+      continue
+    }
+
+    Add-Alert `
+      -Code ("BEHAVIORAL_" + $DriftCode) `
+      -Severity $DriftSeverity `
+      -Message ("Behavioral drift detected: " + $DriftCode) `
+      -Evidence ("behavioral_drift=" + $BehaviorPath)
+  }
+}
+
 if(@($Alerts).Count -eq 0){
   Add-Alert -Code "NO_ACTIVE_ALERTS" -Severity "INFO" -Message "No active alerts detected." -Evidence ""
 }
 
 $Out = [ordered]@{
-  schema = "contract_registry.alerts.v1"
+  schema = "contract_registry.alerts.v2"
   generated_utc = [DateTime]::UtcNow.ToString("o")
   repo_name = $RepoName
   target_repo = (Resolve-Path -LiteralPath $TargetRepo).Path
