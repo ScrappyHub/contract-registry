@@ -217,6 +217,29 @@ function Run-ClassStep {
   return @($Out)
 }
 
+function Run-LineageStep {
+  param([string]$Script,[string]$Repo)
+
+  Write-Host "PIPELINE_STEP_START: lineage" -ForegroundColor Cyan
+
+  $Out = & powershell.exe `
+    -NoProfile `
+    -NonInteractive `
+    -ExecutionPolicy Bypass `
+    -File $Script `
+    -TargetRepo $Repo 2>&1
+
+  $Exit = $LASTEXITCODE
+  foreach($Line in @($Out)){ Write-Host $Line }
+
+  if($Exit -ne 0){
+    throw "PIPELINE_STEP_FAIL: lineage"
+  }
+
+  Write-Host "PIPELINE_STEP_OK: lineage" -ForegroundColor Green
+  return @($Out)
+}
+
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $ShadowScript = Join-Path $PSScriptRoot "cr_shadow_profile_v1.ps1"
 $DailyScript = Join-Path $PSScriptRoot "cr_daily_report_v1.ps1"
@@ -224,6 +247,7 @@ $IntelScript = Join-Path $PSScriptRoot "cr_intelligence_v1.ps1"
 $BehaviorScript = Join-Path $PSScriptRoot "cr_behavioral_drift_v1.ps1"
 $IdentityScript = Join-Path $PSScriptRoot "cr_repo_identity_v1.ps1"
 $ClassScript = Join-Path $PSScriptRoot "cr_software_classification_v1.ps1"
+$LineageScript = Join-Path $PSScriptRoot "cr_lineage_v1.ps1"
 $AlertsScript = Join-Path $PSScriptRoot "cr_alerts_v1.ps1"
 $NotifyScript = Join-Path $PSScriptRoot "cr_notify_v1.ps1"
 
@@ -233,6 +257,7 @@ if(-not (Test-Path -LiteralPath $IntelScript)){ throw "MISSING_INTELLIGENCE_SCRI
 if(-not (Test-Path -LiteralPath $BehaviorScript)){ throw "MISSING_BEHAVIORAL_DRIFT_SCRIPT" }
 if(-not (Test-Path -LiteralPath $IdentityScript)){ throw "MISSING_REPO_IDENTITY_SCRIPT" }
 if(-not (Test-Path -LiteralPath $ClassScript)){ throw "MISSING_SOFTWARE_CLASSIFICATION_SCRIPT" }
+if(-not (Test-Path -LiteralPath $LineageScript)){ throw "MISSING_LINEAGE_SCRIPT" }
 if(-not (Test-Path -LiteralPath $AlertsScript)){ throw "MISSING_ALERTS_SCRIPT" }
 if(-not (Test-Path -LiteralPath $NotifyScript)){ throw "MISSING_NOTIFY_SCRIPT" }
 
@@ -242,6 +267,7 @@ $IntelOut = Run-IntelStep -Script $IntelScript -Repo $TargetRepo
 $BehaviorOut = Run-BehaviorStep -Script $BehaviorScript -Repo $TargetRepo
 $IdentityOut = Run-IdentityStep -Script $IdentityScript -Repo $TargetRepo
 $ClassOut = Run-ClassStep -Script $ClassScript -Repo $TargetRepo
+$LineageOut = Run-LineageStep -Script $LineageScript -Repo $TargetRepo
 $AlertsOut = Run-AlertsStep -Script $AlertsScript -Repo $TargetRepo
 $NotifyOut = Run-NotifyStep -Script $NotifyScript -Repo $TargetRepo
 
@@ -261,13 +287,16 @@ $IdentityReceipt = ""
 $Classification = ""
 $ClassificationReport = ""
 $ClassificationReceipt = ""
+$Lineage = ""
+$LineageReport = ""
+$LineageReceipt = ""
 $Alerts = ""
 $AlertsReceipt = ""
 $Notifications = ""
 $LatestNotification = ""
 $NotifyReceipt = ""
 
-foreach($Line in @($ShadowOut + $DailyOut + $IntelOut + $BehaviorOut + $IdentityOut + $ClassOut + $AlertsOut + $NotifyOut)){
+foreach($Line in @($ShadowOut + $DailyOut + $IntelOut + $BehaviorOut + $IdentityOut + $ClassOut + $LineageOut + $AlertsOut + $NotifyOut)){
   $S = [string]$Line
   if($S.StartsWith("SNAPSHOT:")){ $Snapshot = $S.Substring(9).Trim() }
   if($S.StartsWith("DIFF:")){ $Diff = $S.Substring(5).Trim() }
@@ -285,6 +314,7 @@ foreach($Line in @($ShadowOut + $DailyOut + $IntelOut + $BehaviorOut + $Identity
     elseif([string]::IsNullOrWhiteSpace($BehaviorReceipt)){ $BehaviorReceipt = $S.Substring(8).Trim() }
     elseif([string]::IsNullOrWhiteSpace($IdentityReceipt)){ $IdentityReceipt = $S.Substring(8).Trim() }
     elseif([string]::IsNullOrWhiteSpace($ClassificationReceipt)){ $ClassificationReceipt = $S.Substring(8).Trim() }
+    elseif([string]::IsNullOrWhiteSpace($LineageReceipt)){ $LineageReceipt = $S.Substring(8).Trim() }
     elseif([string]::IsNullOrWhiteSpace($AlertsReceipt)){ $AlertsReceipt = $S.Substring(8).Trim() }
     elseif([string]::IsNullOrWhiteSpace($NotifyReceipt)){ $NotifyReceipt = $S.Substring(8).Trim() }
   }
@@ -303,12 +333,16 @@ foreach($Line in @($ShadowOut + $DailyOut + $IntelOut + $BehaviorOut + $Identity
   if($S.StartsWith("REPORT:") -and $S -like "*software_classification_report.md"){
     $ClassificationReport = $S.Substring(7).Trim()
   }
+    if($S.StartsWith("LINEAGE:")){ $Lineage = $S.Substring(8).Trim() }
+  if($S.StartsWith("REPORT:") -and $S -like "*lineage_report.md"){
+    $LineageReport = $S.Substring(7).Trim()
+  }
   if($S.StartsWith("ALERTS:")){ $Alerts = $S.Substring(7).Trim() }
   if($S.StartsWith("NOTIFICATIONS:")){ $Notifications = $S.Substring(14).Trim() }
   if($S.StartsWith("LATEST:")){ $LatestNotification = $S.Substring(7).Trim() }
 }
 
-$Required = @($Snapshot,$Diff,$Report,$Receipt,$Intelligence,$IntelReport,$IntelReceipt,$BehaviorDrift,$BehaviorReport,$BehaviorReceipt,$Identity,$IdentityReport,$IdentityReceipt,$Classification,$ClassificationReport,$ClassificationReceipt,$Alerts,$AlertsReceipt,$Notifications,$LatestNotification,$NotifyReceipt)
+$Required = @($Snapshot,$Diff,$Report,$Receipt,$Intelligence,$IntelReport,$IntelReceipt,$BehaviorDrift,$BehaviorReport,$BehaviorReceipt,$Identity,$IdentityReport,$IdentityReceipt,$Classification,$ClassificationReport,$ClassificationReceipt,$Lineage,$LineageReport,$LineageReceipt,$Alerts,$AlertsReceipt,$Notifications,$LatestNotification,$NotifyReceipt)
 foreach($Item in $Required){
   if([string]::IsNullOrWhiteSpace($Item)){ throw "PIPELINE_MISSING_OUTPUT_PATH" }
   if(-not (Test-Path -LiteralPath $Item)){ throw ("PIPELINE_OUTPUT_NOT_FOUND: " + $Item) }
@@ -338,6 +372,9 @@ $PipelineReceipt = [ordered]@{
   software_classification = $Classification
   software_classification_report = $ClassificationReport
   software_classification_receipt = $ClassificationReceipt
+  lineage = $Lineage
+  lineage_report = $LineageReport
+  lineage_receipt = $LineageReceipt
   alerts = $Alerts
   alerts_receipt = $AlertsReceipt
   notifications = $Notifications
