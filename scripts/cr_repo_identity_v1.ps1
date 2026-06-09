@@ -40,11 +40,13 @@ $IntelPath = Join-Path $ProfileRoot "intelligence\intelligence.json"
 $BehaviorPath = Join-Path $ProfileRoot "behavioral_drift\behavioral_drift.json"
 $AlertsPath = Join-Path $ProfileRoot "alerts\alerts.json"
 $ConfigPath = Join-Path $ProfileRoot "shadow_config.json"
+$ClassificationPath = Join-Path $ProfileRoot "classification\software_classification.json"
 
 $Intel = Read-JsonSafe -Path $IntelPath
 $Behavior = Read-JsonSafe -Path $BehaviorPath
 $Alerts = Read-JsonSafe -Path $AlertsPath
 $Config = Read-JsonSafe -Path $ConfigPath
+$Classification = Read-JsonSafe -Path $ClassificationPath
 
 if($null -eq $Intel){ throw "INTELLIGENCE_NOT_FOUND_RUN_CR_RUN_FIRST" }
 if($null -eq $Behavior){ throw "BEHAVIORAL_DRIFT_NOT_FOUND_RUN_CR_RUN_FIRST" }
@@ -87,6 +89,16 @@ foreach($s in @($Surfaces)){
 }
 
 $Capabilities = @($Capabilities | Sort-Object -Unique)
+
+$SoftwareClass = "unknown"
+$SoftwareClassConfidence = 0
+$SoftwareClassCandidates = @()
+
+if($Classification){
+  $SoftwareClass = [string](Get-Prop -Obj $Classification -Name "software_class" -Default "unknown")
+  $SoftwareClassConfidence = [int](Get-Prop -Obj $Classification -Name "confidence" -Default 0)
+  $SoftwareClassCandidates = @(Get-Prop -Obj $Classification -Name "candidates" -Default @())
+}
 
 $Archetype = "unknown_repository"
 $ClassificationConfidence = 40
@@ -137,6 +149,9 @@ $Identity = [ordered]@{
   shape = $Shape
   archetype = $Archetype
   classification_confidence = $ClassificationConfidence
+  software_class = $SoftwareClass
+  software_class_confidence = $SoftwareClassConfidence
+  software_class_candidates = @($SoftwareClassCandidates | Select-Object -First 5)
   runtime_surfaces = $Surfaces
   capabilities = $Capabilities
   ecosystems = $Ecosystems
@@ -166,6 +181,8 @@ $Report += "## Identity"
 $Report += "- Shape: $Shape"
 $Report += "- Archetype: $Archetype"
 $Report += "- Classification confidence: $ClassificationConfidence"
+$Report += "- Software class: $SoftwareClass"
+$Report += "- Software class confidence: $SoftwareClassConfidence"
 $Report += "- Intent: $($Identity.intent)"
 $Report += "- Risk posture: $RiskPosture"
 $Report += "- Max risk score: $MaxRisk"
@@ -201,6 +218,9 @@ $Receipt = [ordered]@{
   shape = $Shape
   archetype = $Archetype
   classification_confidence = $ClassificationConfidence
+  software_class = $SoftwareClass
+  software_class_confidence = $SoftwareClassConfidence
+  software_class_candidates = @($SoftwareClassCandidates | Select-Object -First 5)
   risk_posture = $RiskPosture
   capability_count = @($Capabilities).Count
 }
@@ -215,4 +235,6 @@ Write-Host ("RECEIPT: " + $ReceiptPath)
 Write-Host ("SHAPE: " + $Shape)
 Write-Host ("ARCHETYPE: " + $Archetype)
 Write-Host ("CONFIDENCE: " + $ClassificationConfidence)
+Write-Host ("SOFTWARE_CLASS: " + $SoftwareClass)
+Write-Host ("SOFTWARE_CLASS_CONFIDENCE: " + $SoftwareClassConfidence)
 Write-Host ("RISK_POSTURE: " + $RiskPosture)
