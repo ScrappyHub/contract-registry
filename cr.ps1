@@ -172,6 +172,8 @@ switch($Command.ToLowerInvariant()){
     $BehaviorReceiptPath = Join-Path $ProfileRoot "behavioral_drift\behavioral_drift_receipt.json"
     $IdentityPath = Join-Path $ProfileRoot "identity\repo_identity.json"
     $IdentityReceiptPath = Join-Path $ProfileRoot "identity\repo_identity_receipt.json"
+    $ClassificationPath = Join-Path $ProfileRoot "classification\software_classification.json"
+    $ClassificationReceiptPath = Join-Path $ProfileRoot "classification\software_classification_receipt.json"
 
     $Intel = Read-JsonSafe -Path $IntelPath
     $IntelReceipt = Read-JsonSafe -Path $IntelReceiptPath
@@ -183,6 +185,8 @@ switch($Command.ToLowerInvariant()){
     $BehaviorReceipt = Read-JsonSafe -Path $BehaviorReceiptPath
     $Identity = Read-JsonSafe -Path $IdentityPath
     $IdentityReceipt = Read-JsonSafe -Path $IdentityReceiptPath
+    $Classification = Read-JsonSafe -Path $ClassificationPath
+    $ClassificationReceipt = Read-JsonSafe -Path $ClassificationReceiptPath
 
     Write-Host "Contract Registry Status" -ForegroundColor Cyan
     Write-Host ("Repo: " + $RepoName)
@@ -232,6 +236,26 @@ switch($Command.ToLowerInvariant()){
       if($IdentityReceipt){
         Write-Host ("  report: " + $IdentityReceipt.report)
         Write-Host ("  receipt: " + $IdentityReceiptPath)
+      }
+
+      Write-Host ""
+    }
+
+    if($Classification){
+      Write-Host "Software Classification" -ForegroundColor Green
+      Write-Host ("  software_class: " + $Classification.software_class)
+      Write-Host ("  confidence: " + $Classification.confidence)
+
+      if($Classification.candidates){
+        Write-Host "  candidates:"
+        foreach($c in @($Classification.candidates | Select-Object -First 5)){
+          Write-Host ("    " + $c.class + ": " + $c.score)
+        }
+      }
+
+      if($ClassificationReceipt){
+        Write-Host ("  report: " + $ClassificationReceipt.report)
+        Write-Host ("  receipt: " + $ClassificationReceiptPath)
       }
 
       Write-Host ""
