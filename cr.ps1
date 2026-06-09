@@ -174,6 +174,8 @@ switch($Command.ToLowerInvariant()){
     $IdentityReceiptPath = Join-Path $ProfileRoot "identity\repo_identity_receipt.json"
     $ClassificationPath = Join-Path $ProfileRoot "classification\software_classification.json"
     $ClassificationReceiptPath = Join-Path $ProfileRoot "classification\software_classification_receipt.json"
+    $LineagePath = Join-Path $ProfileRoot "lineage\lineage.json"
+    $LineageReceiptPath = Join-Path $ProfileRoot "lineage\lineage_receipt.json"
 
     $Intel = Read-JsonSafe -Path $IntelPath
     $IntelReceipt = Read-JsonSafe -Path $IntelReceiptPath
@@ -187,6 +189,8 @@ switch($Command.ToLowerInvariant()){
     $IdentityReceipt = Read-JsonSafe -Path $IdentityReceiptPath
     $Classification = Read-JsonSafe -Path $ClassificationPath
     $ClassificationReceipt = Read-JsonSafe -Path $ClassificationReceiptPath
+    $Lineage = Read-JsonSafe -Path $LineagePath
+    $LineageReceipt = Read-JsonSafe -Path $LineageReceiptPath
 
     Write-Host "Contract Registry Status" -ForegroundColor Cyan
     Write-Host ("Repo: " + $RepoName)
@@ -256,6 +260,24 @@ switch($Command.ToLowerInvariant()){
       if($ClassificationReceipt){
         Write-Host ("  report: " + $ClassificationReceipt.report)
         Write-Host ("  receipt: " + $ClassificationReceiptPath)
+      }
+
+      Write-Host ""
+    }
+
+    if($Lineage){
+      Write-Host "Lineage" -ForegroundColor Green
+      Write-Host ("  current_class: " + $Lineage.current_class)
+      Write-Host ("  trajectory: " + $Lineage.trajectory)
+      Write-Host ("  velocity: " + $Lineage.velocity)
+      Write-Host ("  confidence: " + $Lineage.confidence)
+      Write-Host ("  first_class: " + $Lineage.first_class)
+      Write-Host ("  current_shape: " + $Lineage.current_shape)
+      Write-Host ("  evolution_chain: " + (@($Lineage.evolution_chain) -join " -> "))
+
+      if($LineageReceipt){
+        Write-Host ("  report: " + $LineageReceipt.report)
+        Write-Host ("  receipt: " + $LineageReceiptPath)
       }
 
       Write-Host ""
