@@ -287,23 +287,6 @@ switch($Command.ToLowerInvariant()){
       Write-Host ""
     }
 
-    if($Lineage){
-      Write-Host "Lineage" -ForegroundColor Green
-      Write-Host ("  current_class: " + $Lineage.current_class)
-      Write-Host ("  trajectory: " + $Lineage.trajectory)
-      Write-Host ("  velocity: " + $Lineage.velocity)
-      Write-Host ("  confidence: " + $Lineage.confidence)
-      Write-Host ("  first_class: " + $Lineage.first_class)
-      Write-Host ("  current_shape: " + $Lineage.current_shape)
-      Write-Host ("  evolution_chain: " + (@($Lineage.evolution_chain) -join " -> "))
-
-      if($LineageReceipt){
-        Write-Host ("  report: " + $LineageReceipt.report)
-        Write-Host ("  receipt: " + $LineageReceiptPath)
-      }
-
-      Write-Host ""
-    }
 
     if($Behavior){
       Write-Host "Behavioral Drift" -ForegroundColor Green
