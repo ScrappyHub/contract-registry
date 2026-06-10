@@ -38,10 +38,12 @@ $ProfileRoot = Join-Path $TargetRepo ("runtime\shadow_profiles\" + $RepoName)
 $IntelPath = Join-Path $ProfileRoot "intelligence\intelligence.json"
 $AlertsRoot = Join-Path $ProfileRoot "alerts"
 $BehaviorPath = Join-Path $ProfileRoot "behavioral_drift\behavioral_drift.json"
+$CapabilityPath = Join-Path $ProfileRoot "capabilities\capability_graph.json"
 New-Item -ItemType Directory -Force -Path $AlertsRoot | Out-Null
 
 $Intel = Read-JsonSafe -Path $IntelPath
 $Behavior = Read-JsonSafe -Path $BehaviorPath
+$CapabilityGraph = Read-JsonSafe -Path $CapabilityPath
 if($null -eq $Intel){
   throw "INTELLIGENCE_NOT_FOUND_RUN_CR_RUN_FIRST"
 }
@@ -106,6 +108,35 @@ if($Signals){
   }
 }
 
+if($CapabilityGraph){
+  foreach($c in @($CapabilityGraph.capabilities)){
+    $CapName = [string]$c.name
+    $CapConfidence = [int]$c.confidence
+
+    if($CapConfidence -lt 94){
+      continue
+    }
+
+    switch($CapName){
+      "database_or_schema_governance" {
+        Add-Alert -Code "HIGH_CONFIDENCE_DATABASE_GOVERNANCE" -Severity "LOW" -Message "High-confidence database/schema governance capability detected." -Evidence ("confidence=" + $CapConfidence)
+      }
+      "governance_modeling" {
+        Add-Alert -Code "HIGH_CONFIDENCE_GOVERNANCE_MODELING" -Severity "LOW" -Message "High-confidence governance modeling capability detected." -Evidence ("confidence=" + $CapConfidence)
+      }
+      "supabase_backend" {
+        Add-Alert -Code "HIGH_CONFIDENCE_SUPABASE_BACKEND" -Severity "LOW" -Message "High-confidence Supabase backend capability detected." -Evidence ("confidence=" + $CapConfidence)
+      }
+      "api_surface" {
+        Add-Alert -Code "HIGH_CONFIDENCE_API_SURFACE" -Severity "LOW" -Message "High-confidence API surface capability detected." -Evidence ("confidence=" + $CapConfidence)
+      }
+      "governed_platform_runtime" {
+        Add-Alert -Code "HIGH_CONFIDENCE_GOVERNED_PLATFORM_RUNTIME" -Severity "LOW" -Message "High-confidence governed platform runtime capability detected." -Evidence ("confidence=" + $CapConfidence)
+      }
+    }
+  }
+}
+
 if($Behavior){
   foreach($d in @($Behavior.changes)){
     $DriftCode = [string]$d.code
@@ -132,7 +163,7 @@ if(@($Alerts).Count -eq 0){
 }
 
 $Out = [ordered]@{
-  schema = "contract_registry.alerts.v2"
+  schema = "contract_registry.alerts.v3"
   generated_utc = [DateTime]::UtcNow.ToString("o")
   repo_name = $RepoName
   target_repo = (Resolve-Path -LiteralPath $TargetRepo).Path
