@@ -176,8 +176,12 @@ switch($Command.ToLowerInvariant()){
     $ClassificationReceiptPath = Join-Path $ProfileRoot "classification\software_classification_receipt.json"
     $LineagePath = Join-Path $ProfileRoot "lineage\lineage.json"
     $LineageReceiptPath = Join-Path $ProfileRoot "lineage\lineage_receipt.json"
+    $CapabilityPath = Join-Path $ProfileRoot "capabilities\capability_graph.json"
+    $CapabilityReceiptPath = Join-Path $ProfileRoot "capabilities\capability_graph_receipt.json"
     $LineagePath = Join-Path $ProfileRoot "lineage\lineage.json"
     $LineageReceiptPath = Join-Path $ProfileRoot "lineage\lineage_receipt.json"
+    $CapabilityPath = Join-Path $ProfileRoot "capabilities\capability_graph.json"
+    $CapabilityReceiptPath = Join-Path $ProfileRoot "capabilities\capability_graph_receipt.json"
 
     $Intel = Read-JsonSafe -Path $IntelPath
     $IntelReceipt = Read-JsonSafe -Path $IntelReceiptPath
@@ -193,8 +197,12 @@ switch($Command.ToLowerInvariant()){
     $ClassificationReceipt = Read-JsonSafe -Path $ClassificationReceiptPath
     $Lineage = Read-JsonSafe -Path $LineagePath
     $LineageReceipt = Read-JsonSafe -Path $LineageReceiptPath
+    $CapabilityGraph = Read-JsonSafe -Path $CapabilityPath
+    $CapabilityReceipt = Read-JsonSafe -Path $CapabilityReceiptPath
     $Lineage = Read-JsonSafe -Path $LineagePath
     $LineageReceipt = Read-JsonSafe -Path $LineageReceiptPath
+    $CapabilityGraph = Read-JsonSafe -Path $CapabilityPath
+    $CapabilityReceipt = Read-JsonSafe -Path $CapabilityReceiptPath
 
     Write-Host "Contract Registry Status" -ForegroundColor Cyan
     Write-Host ("Repo: " + $RepoName)
@@ -287,6 +295,22 @@ switch($Command.ToLowerInvariant()){
       Write-Host ""
     }
 
+
+    if($CapabilityGraph){
+      Write-Host "Capability Graph" -ForegroundColor Green
+      Write-Host ("  capability_count: " + $CapabilityGraph.capability_count)
+
+      foreach($c in @($CapabilityGraph.capabilities | Select-Object -First 8)){
+        Write-Host ("  " + $c.confidence + " " + $c.name)
+      }
+
+      if($CapabilityReceipt){
+        Write-Host ("  report: " + $CapabilityReceipt.report)
+        Write-Host ("  receipt: " + $CapabilityReceiptPath)
+      }
+
+      Write-Host ""
+    }
 
     if($Behavior){
       Write-Host "Behavioral Drift" -ForegroundColor Green
