@@ -295,6 +295,7 @@ $IdentityScript = Join-Path $PSScriptRoot "cr_repo_identity_v1.ps1"
 $ClassScript = Join-Path $PSScriptRoot "cr_software_classification_v1.ps1"
 $LineageScript = Join-Path $PSScriptRoot "cr_lineage_v1.ps1"
 $CapabilityScript = Join-Path $PSScriptRoot "cr_capability_graph_v1.ps1"
+$RiskTopologyScript = Join-Path $PSScriptRoot "cr_risk_topology_v1.ps1"
 $AlertsScript = Join-Path $PSScriptRoot "cr_alerts_v1.ps1"
 $NotifyScript = Join-Path $PSScriptRoot "cr_notify_v1.ps1"
 
@@ -306,6 +307,7 @@ if(-not (Test-Path -LiteralPath $IdentityScript)){ throw "MISSING_REPO_IDENTITY_
 if(-not (Test-Path -LiteralPath $ClassScript)){ throw "MISSING_SOFTWARE_CLASSIFICATION_SCRIPT" }
 if(-not (Test-Path -LiteralPath $LineageScript)){ throw "MISSING_LINEAGE_SCRIPT" }
 if(-not (Test-Path -LiteralPath $CapabilityScript)){ throw "MISSING_CAPABILITY_GRAPH_SCRIPT" }
+if(-not (Test-Path -LiteralPath $RiskTopologyScript)){ throw "MISSING_RISK_TOPOLOGY_SCRIPT" }
 if(-not (Test-Path -LiteralPath $AlertsScript)){ throw "MISSING_ALERTS_SCRIPT" }
 if(-not (Test-Path -LiteralPath $NotifyScript)){ throw "MISSING_NOTIFY_SCRIPT" }
 
