@@ -24,7 +24,8 @@ function Show-Help {
   Write-Host "  run  -TargetRepo <path> [-Date yyyy-MM-dd]"
   Write-Host "  watch -TargetRepo <path> [-IntervalSeconds 60]"
   Write-Host "  status -TargetRepo <path>"
-  Write-Host "  notify -TargetRepo <path>"
+  Write-Host "  notify -TargetRepo <path>
+  risk -TargetRepo <path>"
   Write-Host "  alerts -TargetRepo <path>"
   Write-Host ""
 }
@@ -398,6 +399,26 @@ switch($Command.ToLowerInvariant()){
       -NonInteractive `
       -ExecutionPolicy Bypass `
       -File $AlertsScript `
+      -TargetRepo $TargetRepo
+
+    exit $LASTEXITCODE
+  }
+
+  "risk" {
+    $RiskTopologyScript = Join-Path $PSScriptRoot "scripts\cr_risk_topology_v1.ps1"
+    if([string]::IsNullOrWhiteSpace($PSScriptRoot)){
+      $RiskTopologyScript = Join-Path (Split-Path -Parent $PSCommandPath) "scripts\cr_risk_topology_v1.ps1"
+    }
+
+    if(-not (Test-Path -LiteralPath $RiskTopologyScript -PathType Leaf)){
+      throw "MISSING_RISK_TOPOLOGY_SCRIPT"
+    }
+
+    & powershell.exe `
+      -NoProfile `
+      -NonInteractive `
+      -ExecutionPolicy Bypass `
+      -File $RiskTopologyScript `
       -TargetRepo $TargetRepo
 
     exit $LASTEXITCODE
