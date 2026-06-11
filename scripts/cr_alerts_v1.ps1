@@ -39,11 +39,13 @@ $IntelPath = Join-Path $ProfileRoot "intelligence\intelligence.json"
 $AlertsRoot = Join-Path $ProfileRoot "alerts"
 $BehaviorPath = Join-Path $ProfileRoot "behavioral_drift\behavioral_drift.json"
 $CapabilityPath = Join-Path $ProfileRoot "capabilities\capability_graph.json"
+$RiskTopologyPath = Join-Path $ProfileRoot "risk_topology\risk_topology.json"
 New-Item -ItemType Directory -Force -Path $AlertsRoot | Out-Null
 
 $Intel = Read-JsonSafe -Path $IntelPath
 $Behavior = Read-JsonSafe -Path $BehaviorPath
 $CapabilityGraph = Read-JsonSafe -Path $CapabilityPath
+$RiskTopology = Read-JsonSafe -Path $RiskTopologyPath
 if($null -eq $Intel){
   throw "INTELLIGENCE_NOT_FOUND_RUN_CR_RUN_FIRST"
 }
@@ -108,6 +110,30 @@ if($Signals){
   }
 }
 
+if($RiskTopology){
+  $TopologyRisk = [string](Get-Prop -Obj $RiskTopology -Name "topology_risk" -Default "low")
+  $MaxRiskNode = [string](Get-Prop -Obj $RiskTopology -Name "max_risk_node" -Default "")
+  $MaxRiskScore = [int](Get-Prop -Obj $RiskTopology -Name "max_risk_score" -Default 0)
+
+  if($TopologyRisk -eq "high"){
+    Add-Alert -Code "HIGH_RISK_TOPOLOGY" -Severity "HIGH" -Message "High repository risk topology detected." -Evidence ("max_risk_node=" + $MaxRiskNode + ";max_risk_score=" + $MaxRiskScore)
+  } elseif($TopologyRisk -eq "medium"){
+    Add-Alert -Code "MEDIUM_RISK_TOPOLOGY" -Severity "MEDIUM" -Message "Medium repository risk topology detected." -Evidence ("max_risk_node=" + $MaxRiskNode + ";max_risk_score=" + $MaxRiskScore)
+  }
+
+  foreach($n in @($RiskTopology.collapsed_risk_nodes | Select-Object -First 5)){
+    $NodeName = [string]$n.name
+    $NodeScore = [int]$n.risk_score
+    $Blast = [string]$n.blast_radius
+
+    if($Blast -eq "high"){
+      Add-Alert -Code ("HIGH_RISK_NODE_" + $NodeName.ToUpperInvariant()) -Severity "HIGH" -Message ("High-risk topology node detected: " + $NodeName) -Evidence ("risk_score=" + $NodeScore)
+    } elseif($Blast -eq "medium" -and $NodeScore -ge 80){
+      Add-Alert -Code ("MEDIUM_RISK_NODE_" + $NodeName.ToUpperInvariant()) -Severity "MEDIUM" -Message ("Medium-risk topology node detected: " + $NodeName) -Evidence ("risk_score=" + $NodeScore)
+    }
+  }
+}
+
 if($CapabilityGraph){
   foreach($c in @($CapabilityGraph.capabilities)){
     $CapName = [string]$c.name
@@ -163,7 +189,7 @@ if(@($Alerts).Count -eq 0){
 }
 
 $Out = [ordered]@{
-  schema = "contract_registry.alerts.v3"
+  schema = "contract_registry.alerts.v4"
   generated_utc = [DateTime]::UtcNow.ToString("o")
   repo_name = $RepoName
   target_repo = (Resolve-Path -LiteralPath $TargetRepo).Path
