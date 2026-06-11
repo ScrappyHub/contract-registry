@@ -178,10 +178,14 @@ switch($Command.ToLowerInvariant()){
     $LineageReceiptPath = Join-Path $ProfileRoot "lineage\lineage_receipt.json"
     $CapabilityPath = Join-Path $ProfileRoot "capabilities\capability_graph.json"
     $CapabilityReceiptPath = Join-Path $ProfileRoot "capabilities\capability_graph_receipt.json"
+    $RiskTopologyPath = Join-Path $ProfileRoot "risk_topology\risk_topology.json"
+    $RiskTopologyReceiptPath = Join-Path $ProfileRoot "risk_topology\risk_topology_receipt.json"
     $LineagePath = Join-Path $ProfileRoot "lineage\lineage.json"
     $LineageReceiptPath = Join-Path $ProfileRoot "lineage\lineage_receipt.json"
     $CapabilityPath = Join-Path $ProfileRoot "capabilities\capability_graph.json"
     $CapabilityReceiptPath = Join-Path $ProfileRoot "capabilities\capability_graph_receipt.json"
+    $RiskTopologyPath = Join-Path $ProfileRoot "risk_topology\risk_topology.json"
+    $RiskTopologyReceiptPath = Join-Path $ProfileRoot "risk_topology\risk_topology_receipt.json"
 
     $Intel = Read-JsonSafe -Path $IntelPath
     $IntelReceipt = Read-JsonSafe -Path $IntelReceiptPath
@@ -199,10 +203,14 @@ switch($Command.ToLowerInvariant()){
     $LineageReceipt = Read-JsonSafe -Path $LineageReceiptPath
     $CapabilityGraph = Read-JsonSafe -Path $CapabilityPath
     $CapabilityReceipt = Read-JsonSafe -Path $CapabilityReceiptPath
+    $RiskTopology = Read-JsonSafe -Path $RiskTopologyPath
+    $RiskTopologyReceipt = Read-JsonSafe -Path $RiskTopologyReceiptPath
     $Lineage = Read-JsonSafe -Path $LineagePath
     $LineageReceipt = Read-JsonSafe -Path $LineageReceiptPath
     $CapabilityGraph = Read-JsonSafe -Path $CapabilityPath
     $CapabilityReceipt = Read-JsonSafe -Path $CapabilityReceiptPath
+    $RiskTopology = Read-JsonSafe -Path $RiskTopologyPath
+    $RiskTopologyReceipt = Read-JsonSafe -Path $RiskTopologyReceiptPath
 
     Write-Host "Contract Registry Status" -ForegroundColor Cyan
     Write-Host ("Repo: " + $RepoName)
@@ -307,6 +315,28 @@ switch($Command.ToLowerInvariant()){
       if($CapabilityReceipt){
         Write-Host ("  report: " + $CapabilityReceipt.report)
         Write-Host ("  receipt: " + $CapabilityReceiptPath)
+      }
+
+      Write-Host ""
+    }
+
+    if($RiskTopology){
+      Write-Host "Risk Topology" -ForegroundColor Green
+      Write-Host ("  topology_risk: " + $RiskTopology.topology_risk)
+      Write-Host ("  max_risk_node: " + $RiskTopology.max_risk_node)
+      Write-Host ("  max_risk_score: " + $RiskTopology.max_risk_score)
+      Write-Host ("  high_risk_count: " + $RiskTopology.high_risk_count)
+      Write-Host ("  medium_risk_count: " + $RiskTopology.medium_risk_count)
+      Write-Host ("  low_risk_count: " + $RiskTopology.low_risk_count)
+
+      Write-Host "  top_nodes:"
+      foreach($n in @($RiskTopology.collapsed_risk_nodes | Select-Object -First 8)){
+        Write-Host ("    " + $n.blast_radius.ToUpperInvariant() + " " + $n.risk_score + " " + $n.name)
+      }
+
+      if($RiskTopologyReceipt){
+        Write-Host ("  report: " + $RiskTopologyReceipt.report)
+        Write-Host ("  receipt: " + $RiskTopologyReceiptPath)
       }
 
       Write-Host ""
