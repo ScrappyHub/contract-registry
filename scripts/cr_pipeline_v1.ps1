@@ -263,6 +263,29 @@ function Run-CapabilityStep {
   return @($Out)
 }
 
+function Run-RiskTopologyStep {
+  param([string]$Script,[string]$Repo)
+
+  Write-Host "PIPELINE_STEP_START: risk_topology" -ForegroundColor Cyan
+
+  $Out = & powershell.exe `
+    -NoProfile `
+    -NonInteractive `
+    -ExecutionPolicy Bypass `
+    -File $Script `
+    -TargetRepo $Repo 2>&1
+
+  $Exit = $LASTEXITCODE
+  foreach($Line in @($Out)){ Write-Host $Line }
+
+  if($Exit -ne 0){
+    throw "PIPELINE_STEP_FAIL: risk_topology"
+  }
+
+  Write-Host "PIPELINE_STEP_OK: risk_topology" -ForegroundColor Green
+  return @($Out)
+}
+
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $ShadowScript = Join-Path $PSScriptRoot "cr_shadow_profile_v1.ps1"
 $DailyScript = Join-Path $PSScriptRoot "cr_daily_report_v1.ps1"
@@ -294,6 +317,7 @@ $IdentityOut = Run-IdentityStep -Script $IdentityScript -Repo $TargetRepo
 $ClassOut = Run-ClassStep -Script $ClassScript -Repo $TargetRepo
 $LineageOut = Run-LineageStep -Script $LineageScript -Repo $TargetRepo
 $CapabilityOut = Run-CapabilityStep -Script $CapabilityScript -Repo $TargetRepo
+$RiskTopologyOut = Run-RiskTopologyStep -Script $RiskTopologyScript -Repo $TargetRepo
 $AlertsOut = Run-AlertsStep -Script $AlertsScript -Repo $TargetRepo
 $NotifyOut = Run-NotifyStep -Script $NotifyScript -Repo $TargetRepo
 
@@ -319,6 +343,9 @@ $LineageReceipt = ""
 $CapabilityGraph = ""
 $CapabilityReport = ""
 $CapabilityReceipt = ""
+$RiskTopology = ""
+$RiskTopologyReport = ""
+$RiskTopologyReceipt = ""
 $Alerts = ""
 $AlertsReceipt = ""
 $Notifications = ""
@@ -345,6 +372,7 @@ foreach($Line in @($ShadowOut + $DailyOut + $IntelOut + $BehaviorOut + $Identity
     elseif([string]::IsNullOrWhiteSpace($ClassificationReceipt)){ $ClassificationReceipt = $S.Substring(8).Trim() }
     elseif([string]::IsNullOrWhiteSpace($LineageReceipt)){ $LineageReceipt = $S.Substring(8).Trim() }
     elseif([string]::IsNullOrWhiteSpace($CapabilityReceipt)){ $CapabilityReceipt = $S.Substring(8).Trim() }
+    elseif([string]::IsNullOrWhiteSpace($RiskTopologyReceipt)){ $RiskTopologyReceipt = $S.Substring(8).Trim() }
     elseif([string]::IsNullOrWhiteSpace($AlertsReceipt)){ $AlertsReceipt = $S.Substring(8).Trim() }
     elseif([string]::IsNullOrWhiteSpace($NotifyReceipt)){ $NotifyReceipt = $S.Substring(8).Trim() }
   }
@@ -370,6 +398,10 @@ foreach($Line in @($ShadowOut + $DailyOut + $IntelOut + $BehaviorOut + $Identity
     if($S.StartsWith("GRAPH:")){ $CapabilityGraph = $S.Substring(6).Trim() }
   if($S.StartsWith("REPORT:") -and $S -like "*capability_graph_report.md"){
     $CapabilityReport = $S.Substring(7).Trim()
+  }
+    if($S.StartsWith("RISK_TOPOLOGY:")){ $RiskTopology = $S.Substring(14).Trim() }
+  if($S.StartsWith("REPORT:") -and $S -like "*risk_topology_report.md"){
+    $RiskTopologyReport = $S.Substring(7).Trim()
   }
   if($S.StartsWith("ALERTS:")){ $Alerts = $S.Substring(7).Trim() }
   if($S.StartsWith("NOTIFICATIONS:")){ $Notifications = $S.Substring(14).Trim() }
