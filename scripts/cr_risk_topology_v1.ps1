@@ -172,17 +172,49 @@ if($Identity){
 
 $Ranked = @($Nodes | Sort-Object name | Sort-Object risk_score -Descending)
 
+$Collapsed = @(
+  $Ranked |
+    Group-Object name |
+    ForEach-Object {
+      $Group = @($_.Group)
+      $Top = $Group | Sort-Object risk_score -Descending | Select-Object -First 1
+      $ReasonCodes = @()
+      $Categories = @()
+
+      foreach($g in $Group){
+        $ReasonCodes += @($g.reason_codes)
+        $Categories += [string]$g.category
+      }
+
+      $Score = [int]$Top.risk_score
+      $Blast = "low"
+      if($Score -ge 85){ $Blast = "high" }
+      elseif($Score -ge 60){ $Blast = "medium" }
+
+      [pscustomobject]@{
+        name = [string]$Top.name
+        categories = @($Categories | Sort-Object -Unique)
+        risk_score = $Score
+        blast_radius = $Blast
+        reason_codes = @($ReasonCodes | Sort-Object -Unique)
+        source_node_count = @($Group).Count
+      }
+    } |
+    Sort-Object name |
+    Sort-Object risk_score -Descending
+)
+
 foreach($n in @($Ranked)){
   if($n.risk_score -ge 85){ $n.blast_radius = "high" }
   elseif($n.risk_score -ge 60){ $n.blast_radius = "medium" }
   else { $n.blast_radius = "low" }
 }
 
-$HighCount = @($Ranked | Where-Object { $_.blast_radius -eq "high" }).Count
-$MediumCount = @($Ranked | Where-Object { $_.blast_radius -eq "medium" }).Count
-$LowCount = @($Ranked | Where-Object { $_.blast_radius -eq "low" }).Count
+$HighCount = @($Collapsed | Where-Object { $_.blast_radius -eq "high" }).Count
+$MediumCount = @($Collapsed | Where-Object { $_.blast_radius -eq "medium" }).Count
+$LowCount = @($Collapsed | Where-Object { $_.blast_radius -eq "low" }).Count
 
-$MaxNode = $Ranked | Select-Object -First 1
+$MaxNode = $Collapsed | Select-Object -First 1
 $MaxRiskNode = if($MaxNode){ [string]$MaxNode.name } else { "" }
 $MaxRiskScore = if($MaxNode){ [int]$MaxNode.risk_score } else { 0 }
 
@@ -202,6 +234,8 @@ $Out = [ordered]@{
   medium_risk_count = $MediumCount
   low_risk_count = $LowCount
   node_count = @($Ranked).Count
+  collapsed_node_count = @($Collapsed).Count
+  collapsed_risk_nodes = $Collapsed
   risk_nodes = $Ranked
 }
 
@@ -226,8 +260,8 @@ $Report += "- Medium risk count: $MediumCount"
 $Report += "- Low risk count: $LowCount"
 $Report += ""
 $Report += "## Highest Risk Nodes"
-foreach($n in @($Ranked | Select-Object -First 10)){
-  $Report += "- $($n.blast_radius.ToUpperInvariant()) $($n.risk_score) $($n.name) [$($n.category)]"
+foreach($n in @($Collapsed | Select-Object -First 10)){
+  $Report += "- $($n.blast_radius.ToUpperInvariant()) $($n.risk_score) $($n.name) [$(@($n.categories) -join ', ')]"
 }
 
 $ReportPath = Join-Path $Root "risk_topology_report.md"
@@ -240,6 +274,7 @@ $Receipt = [ordered]@{
   risk_topology = $TopologyPath
   report = $ReportPath
   node_count = @($Ranked).Count
+  collapsed_node_count = @($Collapsed).Count
   max_risk_node = $MaxRiskNode
   max_risk_score = $MaxRiskScore
   topology_risk = $TopologyRisk
@@ -256,6 +291,6 @@ Write-Host ("TOPOLOGY_RISK: " + $TopologyRisk)
 Write-Host ("MAX_RISK_NODE: " + $MaxRiskNode)
 Write-Host ("MAX_RISK_SCORE: " + $MaxRiskScore)
 
-foreach($n in @($Ranked | Select-Object -First 8)){
+foreach($n in @($Collapsed | Select-Object -First 8)){
   Write-Host ("RISK_NODE: " + $n.blast_radius.ToUpperInvariant() + " " + $n.risk_score + " " + $n.name)
 }
