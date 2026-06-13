@@ -286,6 +286,29 @@ function Run-RiskTopologyStep {
   return @($Out)
 }
 
+function Run-DependencyAuthorityStep {
+  param([string]$Script,[string]$Repo)
+
+  Write-Host "PIPELINE_STEP_START: dependency_authority" -ForegroundColor Cyan
+
+  $Out = & powershell.exe `
+    -NoProfile `
+    -NonInteractive `
+    -ExecutionPolicy Bypass `
+    -File $Script `
+    -TargetRepo $Repo 2>&1
+
+  $Exit = $LASTEXITCODE
+  foreach($Line in @($Out)){ Write-Host $Line }
+
+  if($Exit -ne 0){
+    throw "PIPELINE_STEP_FAIL: dependency_authority"
+  }
+
+  Write-Host "PIPELINE_STEP_OK: dependency_authority" -ForegroundColor Green
+  return @($Out)
+}
+
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $ShadowScript = Join-Path $PSScriptRoot "cr_shadow_profile_v1.ps1"
 $DailyScript = Join-Path $PSScriptRoot "cr_daily_report_v1.ps1"
@@ -296,6 +319,7 @@ $ClassScript = Join-Path $PSScriptRoot "cr_software_classification_v1.ps1"
 $LineageScript = Join-Path $PSScriptRoot "cr_lineage_v1.ps1"
 $CapabilityScript = Join-Path $PSScriptRoot "cr_capability_graph_v1.ps1"
 $RiskTopologyScript = Join-Path $PSScriptRoot "cr_risk_topology_v1.ps1"
+$DependencyAuthorityScript = Join-Path $PSScriptRoot "cr_dependency_authority_v1.ps1"
 $AlertsScript = Join-Path $PSScriptRoot "cr_alerts_v1.ps1"
 $NotifyScript = Join-Path $PSScriptRoot "cr_notify_v1.ps1"
 
@@ -308,6 +332,7 @@ if(-not (Test-Path -LiteralPath $ClassScript)){ throw "MISSING_SOFTWARE_CLASSIFI
 if(-not (Test-Path -LiteralPath $LineageScript)){ throw "MISSING_LINEAGE_SCRIPT" }
 if(-not (Test-Path -LiteralPath $CapabilityScript)){ throw "MISSING_CAPABILITY_GRAPH_SCRIPT" }
 if(-not (Test-Path -LiteralPath $RiskTopologyScript)){ throw "MISSING_RISK_TOPOLOGY_SCRIPT" }
+if(-not (Test-Path -LiteralPath $DependencyAuthorityScript)){ throw "MISSING_DEPENDENCY_AUTHORITY_SCRIPT" }
 if(-not (Test-Path -LiteralPath $AlertsScript)){ throw "MISSING_ALERTS_SCRIPT" }
 if(-not (Test-Path -LiteralPath $NotifyScript)){ throw "MISSING_NOTIFY_SCRIPT" }
 
@@ -320,6 +345,7 @@ $ClassOut = Run-ClassStep -Script $ClassScript -Repo $TargetRepo
 $LineageOut = Run-LineageStep -Script $LineageScript -Repo $TargetRepo
 $CapabilityOut = Run-CapabilityStep -Script $CapabilityScript -Repo $TargetRepo
 $RiskTopologyOut = Run-RiskTopologyStep -Script $RiskTopologyScript -Repo $TargetRepo
+$DependencyAuthorityOut = Run-DependencyAuthorityStep -Script $DependencyAuthorityScript -Repo $TargetRepo
 $AlertsOut = Run-AlertsStep -Script $AlertsScript -Repo $TargetRepo
 $NotifyOut = Run-NotifyStep -Script $NotifyScript -Repo $TargetRepo
 
@@ -348,6 +374,9 @@ $CapabilityReceipt = ""
 $RiskTopology = ""
 $RiskTopologyReport = ""
 $RiskTopologyReceipt = ""
+$DependencyAuthority = ""
+$DependencyAuthorityReport = ""
+$DependencyAuthorityReceipt = ""
 $Alerts = ""
 $AlertsReceipt = ""
 $Notifications = ""
@@ -375,6 +404,7 @@ foreach($Line in @($ShadowOut + $DailyOut + $IntelOut + $BehaviorOut + $Identity
     elseif([string]::IsNullOrWhiteSpace($LineageReceipt)){ $LineageReceipt = $S.Substring(8).Trim() }
     elseif([string]::IsNullOrWhiteSpace($CapabilityReceipt)){ $CapabilityReceipt = $S.Substring(8).Trim() }
     elseif([string]::IsNullOrWhiteSpace($RiskTopologyReceipt)){ $RiskTopologyReceipt = $S.Substring(8).Trim() }
+    elseif([string]::IsNullOrWhiteSpace($DependencyAuthorityReceipt)){ $DependencyAuthorityReceipt = $S.Substring(8).Trim() }
     elseif([string]::IsNullOrWhiteSpace($AlertsReceipt)){ $AlertsReceipt = $S.Substring(8).Trim() }
     elseif([string]::IsNullOrWhiteSpace($NotifyReceipt)){ $NotifyReceipt = $S.Substring(8).Trim() }
   }
@@ -404,6 +434,10 @@ foreach($Line in @($ShadowOut + $DailyOut + $IntelOut + $BehaviorOut + $Identity
     if($S.StartsWith("RISK_TOPOLOGY:")){ $RiskTopology = $S.Substring(14).Trim() }
   if($S.StartsWith("REPORT:") -and $S -like "*risk_topology_report.md"){
     $RiskTopologyReport = $S.Substring(7).Trim()
+  }
+    if($S -match "^AUTHORITY:\s*(.+)$"){ $DependencyAuthority = $Matches[1].Trim() }
+  if($S -match "^REPORT:\s*(.+dependency_authority_report\.md)$"){
+    $DependencyAuthorityReport = $Matches[1].Trim()
   }
   if($S.StartsWith("ALERTS:")){ $Alerts = $S.Substring(7).Trim() }
   if($S.StartsWith("NOTIFICATIONS:")){ $Notifications = $S.Substring(14).Trim() }
