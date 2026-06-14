@@ -383,7 +383,7 @@ $Notifications = ""
 $LatestNotification = ""
 $NotifyReceipt = ""
 
-foreach($Line in @($ShadowOut + $DailyOut + $IntelOut + $BehaviorOut + $IdentityOut + $ClassOut + $LineageOut + $CapabilityOut + $AlertsOut + $NotifyOut)){
+foreach($Line in @($ShadowOut + $DailyOut + $IntelOut + $BehaviorOut + $IdentityOut + $ClassOut + $LineageOut + $CapabilityOut + $RiskTopologyOut + $DependencyAuthorityOut + $AlertsOut + $NotifyOut)){
   $S = [string]$Line
   if($S.StartsWith("SNAPSHOT:")){ $Snapshot = $S.Substring(9).Trim() }
   if($S.StartsWith("DIFF:")){ $Diff = $S.Substring(5).Trim() }
@@ -444,7 +444,7 @@ foreach($Line in @($ShadowOut + $DailyOut + $IntelOut + $BehaviorOut + $Identity
   if($S.StartsWith("LATEST:")){ $LatestNotification = $S.Substring(7).Trim() }
 }
 
-$Required = @($Snapshot,$Diff,$Report,$Receipt,$Intelligence,$IntelReport,$IntelReceipt,$BehaviorDrift,$BehaviorReport,$BehaviorReceipt,$Identity,$IdentityReport,$IdentityReceipt,$Classification,$ClassificationReport,$ClassificationReceipt,$Lineage,$LineageReport,$LineageReceipt,$CapabilityGraph,$CapabilityReport,$CapabilityReceipt,$Alerts,$AlertsReceipt,$Notifications,$LatestNotification,$NotifyReceipt)
+$Required = @($Snapshot,$Diff,$Report,$Receipt,$Intelligence,$IntelReport,$IntelReceipt,$BehaviorDrift,$BehaviorReport,$BehaviorReceipt,$Identity,$IdentityReport,$IdentityReceipt,$Classification,$ClassificationReport,$ClassificationReceipt,$Lineage,$LineageReport,$LineageReceipt,$CapabilityGraph,$CapabilityReport,$CapabilityReceipt,$RiskTopology,$RiskTopologyReport,$RiskTopologyReceipt,$DependencyAuthority,$DependencyAuthorityReport,$DependencyAuthorityReceipt,$Alerts,$AlertsReceipt,$Notifications,$LatestNotification,$NotifyReceipt)
 foreach($Item in $Required){
   if([string]::IsNullOrWhiteSpace($Item)){ throw "PIPELINE_MISSING_OUTPUT_PATH" }
   if(-not (Test-Path -LiteralPath $Item)){ throw ("PIPELINE_OUTPUT_NOT_FOUND: " + $Item) }
