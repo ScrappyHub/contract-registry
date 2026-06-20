@@ -3,7 +3,10 @@ param(
   [string]$TargetRepo,
 
   [Parameter(Mandatory=$false)]
-  [string]$EvidencePath = ""
+  [string]$EvidencePath = "",
+
+  [Parameter(Mandatory=$false)]
+  [string]$VerificationPath = ""
 )
 
 Set-StrictMode -Version Latest
@@ -64,6 +67,13 @@ $Contract = Read-JsonSafe -Path $ContractPath
 if($null -eq $Contract){ throw "POLICY_CONTRACT_NOT_FOUND_RUN_POLICY_CONTRACT_FIRST" }
 
 $Evidence = $null
+$Verification = $null
+
+if(-not [string]::IsNullOrWhiteSpace($VerificationPath)){
+  $Verification = Read-JsonSafe -Path $VerificationPath
+  if($null -eq $Verification){ throw "VERIFICATION_NOT_FOUND_OR_INVALID_JSON: $VerificationPath" }
+}
+
 if(-not [string]::IsNullOrWhiteSpace($EvidencePath)){
   $Evidence = Read-JsonSafe -Path $EvidencePath
   if($null -eq $Evidence){ throw "EVIDENCE_NOT_FOUND_OR_INVALID_JSON: $EvidencePath" }
@@ -76,6 +86,11 @@ $SignedPolicySet = if($Evidence){ [bool](Get-Prop -Obj $Evidence -Name "signed_p
 $PolicyReceiptChain = if($Evidence){ [bool](Get-Prop -Obj $Evidence -Name "policy_receipt_chain" -Default $false) } else { $false }
 $RemoteVerifierDecision = if($Evidence){ [string](Get-Prop -Obj $Evidence -Name "remote_verifier_decision" -Default "") } else { "" }
 $DependencyAuthorityBinding = if($Evidence){ [bool](Get-Prop -Obj $Evidence -Name "dependency_authority_binding" -Default $false) } else { $false }
+$RemoteAttestationVerified = $false
+
+if($Verification){
+  $RemoteAttestationVerified = ([string](Get-Prop -Obj $Verification -Name "decision" -Default "") -eq "verified")
+}
 
 foreach($Rule in @(Get-Prop -Obj $Contract -Name "evaluation_rules" -Default @())){
   $Condition = [string](Get-Prop -Obj $Rule -Name "condition" -Default "")
@@ -114,7 +129,11 @@ foreach($Rule in @(Get-Prop -Obj $Contract -Name "evaluation_rules" -Default @()
       if([string](Get-Prop -Obj $Contract -Name "dependency_concentration" -Default "") -eq "high"){ $Triggered = $true }
     }
     default {
-      if($Condition -like "policy_layer_missing_*"){ $Triggered = $true }
+      if($Condition -like "policy_layer_missing_remote_attestation_policy"){
+        if(-not $RemoteAttestationVerified){ $Triggered = $true }
+      } elseif($Condition -like "policy_layer_missing_*"){
+        $Triggered = $true
+      }
     }
   }
 
@@ -143,7 +162,10 @@ $Out = [ordered]@{
   target_repo = $ResolvedRepo
   contract_id = [string](Get-Prop -Obj $Contract -Name "contract_id" -Default "")
   evidence_path = $EvidencePath
+  verification_path = $VerificationPath
+  remote_attestation_verified = $RemoteAttestationVerified
   final_decision = $FinalDecision
+  remote_attestation_verified = $RemoteAttestationVerified
   finding_count = @($Findings).Count
   findings = @($Findings)
 }
@@ -165,6 +187,7 @@ $Report += "## Decision"
 $Report += "- Final decision: $FinalDecision"
 $Report += "- Contract ID: $($Out.contract_id)"
 $Report += "- Finding count: $($Out.finding_count)"
+$Report += "- Remote attestation verified: $RemoteAttestationVerified"
 $Report += ""
 $Report += "## Findings"
 foreach($f in @($Findings)){
@@ -183,6 +206,7 @@ $Receipt = [ordered]@{
   decision = $OutPath
   report = $ReportPath
   final_decision = $FinalDecision
+  remote_attestation_verified = $RemoteAttestationVerified
   finding_count = @($Findings).Count
 }
 
