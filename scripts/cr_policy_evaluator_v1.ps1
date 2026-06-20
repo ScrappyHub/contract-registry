@@ -165,7 +165,6 @@ $Out = [ordered]@{
   verification_path = $VerificationPath
   remote_attestation_verified = $RemoteAttestationVerified
   final_decision = $FinalDecision
-  remote_attestation_verified = $RemoteAttestationVerified
   finding_count = @($Findings).Count
   findings = @($Findings)
 }
