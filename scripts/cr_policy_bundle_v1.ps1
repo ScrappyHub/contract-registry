@@ -118,11 +118,14 @@ $Report += "- risk_topology"
 if($LatestClearance){ $Report += "- latest_conditional_clearance" }
 $Report += ""
 $Report += "## Policy Contract"
-$Report += "- Contract ID: $([string](Get-Prop -Obj $PolicyContract -Name "contract_id" -Default ""))"
-$Report += "- Default decision: $([string](Get-Prop -Obj $PolicyContract -Name "default_decision" -Default ""))"
+$ContractIdForReport = [string](Get-Prop -Obj $PolicyContract -Name "contract_id" -Default "")
+$Report += "- Contract ID: $ContractIdForReport"
+$DefaultDecisionForReport = [string](Get-Prop -Obj $PolicyContract -Name "default_decision" -Default "")
+$Report += "- Default decision: $DefaultDecisionForReport"
 $Report += ""
 $Report += "## Remote Attestation"
-$Report += "- Mode: $([string](Get-Prop -Obj $RemoteAttestationPolicy -Name "remote_verification_mode" -Default ""))"
+$RemoteModeForReport = [string](Get-Prop -Obj $RemoteAttestationPolicy -Name "remote_verification_mode" -Default "")
+$Report += "- Mode: $RemoteModeForReport"
 $Report += "- Trust anchors: $(@(Get-Prop -Obj $RemoteAttestationPolicy -Name "trust_anchors" -Default @()) -join ', ')"
 
 $ReportPath = Join-Path $Root "policy_bundle_report.md"
