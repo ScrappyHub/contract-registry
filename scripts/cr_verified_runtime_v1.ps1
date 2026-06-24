@@ -32,22 +32,27 @@ function Run-Step {
   param(
     [string]$StepName,
     [string]$Script,
-    [string[]]$Args
+    [string[]]$StepArgs
   )
 
   Write-Host ("VERIFIED_RUNTIME_STEP_START: " + $StepName) -ForegroundColor Cyan
 
-  $Out = & powershell.exe `
-    -NoProfile `
-    -NonInteractive `
-    -ExecutionPolicy Bypass `
-    -File $Script @Args 2>&1
+  $Cmd = @(
+    "-NoProfile",
+    "-NonInteractive",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-File",
+    $Script
+  ) + @($StepArgs)
 
+  $Out = & powershell.exe @Cmd 2>&1
   $Exit = $LASTEXITCODE
+
   foreach($Line in @($Out)){ Write-Host $Line }
 
   if($Exit -ne 0){
-    throw ("VERIFIED_RUNTIME_STEP_FAIL: " + $StepName)
+    throw ("VERIFIED_RUNTIME_STEP_FAIL: " + $StepName + " EXIT=" + $Exit)
   }
 
   Write-Host ("VERIFIED_RUNTIME_STEP_OK: " + $StepName) -ForegroundColor Green
@@ -85,7 +90,7 @@ foreach($S in $RequiredScripts){
   }
 }
 
-$MachineOut = Run-Step -StepName "machine_evidence" -Script $MachineScript -Args @(
+$MachineOut = Run-Step -StepName "machine_evidence" -Script $MachineScript -StepArgs @(
   "-TargetRepo", $ResolvedRepo,
   "-MachineId", $MachineId,
   "-Mode", "synthetic"
@@ -96,7 +101,7 @@ if([string]::IsNullOrWhiteSpace($EvidencePath)){
   throw "EVIDENCE_PATH_NOT_CAPTURED"
 }
 
-$VerifyOut = Run-Step -StepName "remote_attestation_verifier" -Script $VerifyScript -Args @(
+$VerifyOut = Run-Step -StepName "remote_attestation_verifier" -Script $VerifyScript -StepArgs @(
   "-TargetRepo", $ResolvedRepo,
   "-EvidencePath", $EvidencePath,
   "-VerifierIdentity", $VerifierIdentity
@@ -107,7 +112,7 @@ if([string]::IsNullOrWhiteSpace($VerificationPath)){
   throw "VERIFICATION_PATH_NOT_CAPTURED"
 }
 
-$EvalOut = Run-Step -StepName "policy_evaluator" -Script $EvaluatorScript -Args @(
+$EvalOut = Run-Step -StepName "policy_evaluator" -Script $EvaluatorScript -StepArgs @(
   "-TargetRepo", $ResolvedRepo,
   "-EvidencePath", $EvidencePath,
   "-VerificationPath", $VerificationPath
@@ -118,7 +123,7 @@ if([string]::IsNullOrWhiteSpace($DecisionPath)){
   throw "DECISION_PATH_NOT_CAPTURED"
 }
 
-$ClearanceOut = Run-Step -StepName "conditional_clearance" -Script $ClearanceScript -Args @(
+$ClearanceOut = Run-Step -StepName "conditional_clearance" -Script $ClearanceScript -StepArgs @(
   "-TargetRepo", $ResolvedRepo,
   "-DecisionPath", $DecisionPath
 )
@@ -128,7 +133,7 @@ if([string]::IsNullOrWhiteSpace($ClearancePath)){
   throw "CLEARANCE_PATH_NOT_CAPTURED"
 }
 
-$BundleOut = Run-Step -StepName "policy_bundle" -Script $BundleScript -Args @(
+$BundleOut = Run-Step -StepName "policy_bundle" -Script $BundleScript -StepArgs @(
   "-TargetRepo", $ResolvedRepo
 )
 
@@ -137,7 +142,7 @@ if([string]::IsNullOrWhiteSpace($BundlePath)){
   throw "BUNDLE_PATH_NOT_CAPTURED"
 }
 
-$TrustOut = Run-Step -StepName "trust_registry" -Script $TrustScript -Args @(
+$TrustOut = Run-Step -StepName "trust_registry" -Script $TrustScript -StepArgs @(
   "-TargetRepo", $ResolvedRepo
 )
 
@@ -146,7 +151,7 @@ if([string]::IsNullOrWhiteSpace($TrustRegistryPath)){
   throw "TRUST_REGISTRY_PATH_NOT_CAPTURED"
 }
 
-$RuntimeOut = Run-Step -StepName "governance_runtime" -Script $RuntimeScript -Args @(
+$RuntimeOut = Run-Step -StepName "governance_runtime" -Script $RuntimeScript -StepArgs @(
   "-TargetRepo", $ResolvedRepo
 )
 
