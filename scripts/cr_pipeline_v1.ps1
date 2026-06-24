@@ -309,6 +309,32 @@ function Run-DependencyAuthorityStep {
   return @($Out)
 }
 
+function Run-SimpleCrStep {
+  param(
+    [string]$StepName,
+    [string]$Script,
+    [string]$Repo
+  )
+
+  Write-Host ("PIPELINE_STEP_START: " + $StepName) -ForegroundColor Cyan
+
+  $Out = & powershell.exe `
+    -NoProfile `
+    -NonInteractive `
+    -ExecutionPolicy Bypass `
+    -File $Script `
+    -TargetRepo $Repo 2>&1
+
+  $Exit = $LASTEXITCODE
+  foreach($Line in @($Out)){ Write-Host $Line }
+
+  if($Exit -ne 0){
+    throw ("PIPELINE_STEP_FAIL: " + $StepName)
+  }
+
+  Write-Host ("PIPELINE_STEP_OK: " + $StepName) -ForegroundColor Green
+  return @($Out)
+}
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $ShadowScript = Join-Path $PSScriptRoot "cr_shadow_profile_v1.ps1"
 $DailyScript = Join-Path $PSScriptRoot "cr_daily_report_v1.ps1"
@@ -320,6 +346,11 @@ $LineageScript = Join-Path $PSScriptRoot "cr_lineage_v1.ps1"
 $CapabilityScript = Join-Path $PSScriptRoot "cr_capability_graph_v1.ps1"
 $RiskTopologyScript = Join-Path $PSScriptRoot "cr_risk_topology_v1.ps1"
 $DependencyAuthorityScript = Join-Path $PSScriptRoot "cr_dependency_authority_v1.ps1"
+$RemoteAttestationPolicyScript = Join-Path $PSScriptRoot "cr_remote_attestation_policy_v1.ps1"
+$PolicyContractScript = Join-Path $PSScriptRoot "cr_policy_contract_v1.ps1"
+$PolicyEvaluatorScript = Join-Path $PSScriptRoot "cr_policy_evaluator_v1.ps1"
+$ConditionalClearanceScript = Join-Path $PSScriptRoot "cr_conditional_clearance_v1.ps1"
+$PolicyBundleScript = Join-Path $PSScriptRoot "cr_policy_bundle_v1.ps1"
 $AlertsScript = Join-Path $PSScriptRoot "cr_alerts_v1.ps1"
 $NotifyScript = Join-Path $PSScriptRoot "cr_notify_v1.ps1"
 
@@ -333,6 +364,11 @@ if(-not (Test-Path -LiteralPath $LineageScript)){ throw "MISSING_LINEAGE_SCRIPT"
 if(-not (Test-Path -LiteralPath $CapabilityScript)){ throw "MISSING_CAPABILITY_GRAPH_SCRIPT" }
 if(-not (Test-Path -LiteralPath $RiskTopologyScript)){ throw "MISSING_RISK_TOPOLOGY_SCRIPT" }
 if(-not (Test-Path -LiteralPath $DependencyAuthorityScript)){ throw "MISSING_DEPENDENCY_AUTHORITY_SCRIPT" }
+if(-not (Test-Path -LiteralPath $RemoteAttestationPolicyScript)){ throw "MISSING_REMOTE_ATTESTATION_POLICY_SCRIPT" }
+if(-not (Test-Path -LiteralPath $PolicyContractScript)){ throw "MISSING_POLICY_CONTRACT_SCRIPT" }
+if(-not (Test-Path -LiteralPath $PolicyEvaluatorScript)){ throw "MISSING_POLICY_EVALUATOR_SCRIPT" }
+if(-not (Test-Path -LiteralPath $ConditionalClearanceScript)){ throw "MISSING_CONDITIONAL_CLEARANCE_SCRIPT" }
+if(-not (Test-Path -LiteralPath $PolicyBundleScript)){ throw "MISSING_POLICY_BUNDLE_SCRIPT" }
 if(-not (Test-Path -LiteralPath $AlertsScript)){ throw "MISSING_ALERTS_SCRIPT" }
 if(-not (Test-Path -LiteralPath $NotifyScript)){ throw "MISSING_NOTIFY_SCRIPT" }
 
@@ -346,6 +382,11 @@ $LineageOut = Run-LineageStep -Script $LineageScript -Repo $TargetRepo
 $CapabilityOut = Run-CapabilityStep -Script $CapabilityScript -Repo $TargetRepo
 $RiskTopologyOut = Run-RiskTopologyStep -Script $RiskTopologyScript -Repo $TargetRepo
 $DependencyAuthorityOut = Run-DependencyAuthorityStep -Script $DependencyAuthorityScript -Repo $TargetRepo
+$RemoteAttestationPolicyOut = Run-SimpleCrStep -StepName "remote_attestation_policy" -Script $RemoteAttestationPolicyScript -Repo $TargetRepo
+$PolicyContractOut = Run-SimpleCrStep -StepName "policy_contract" -Script $PolicyContractScript -Repo $TargetRepo
+$PolicyEvaluatorOut = Run-SimpleCrStep -StepName "policy_evaluator" -Script $PolicyEvaluatorScript -Repo $TargetRepo
+$ConditionalClearanceOut = Run-SimpleCrStep -StepName "conditional_clearance" -Script $ConditionalClearanceScript -Repo $TargetRepo
+$PolicyBundleOut = Run-SimpleCrStep -StepName "policy_bundle" -Script $PolicyBundleScript -Repo $TargetRepo
 $AlertsOut = Run-AlertsStep -Script $AlertsScript -Repo $TargetRepo
 $NotifyOut = Run-NotifyStep -Script $NotifyScript -Repo $TargetRepo
 
