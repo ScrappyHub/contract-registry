@@ -1,20 +1,24 @@
 param(
-  [Parameter(Position=0
+  [Parameter(Position=0)]
+  [string]$Command = "help",
+
+  [Parameter(Mandatory=$false)]
+  [string]$Intent = "",
+
+  [Parameter(Mandatory=$false)]
+  [string]$TargetRepo = "",
+
+  [Parameter(Mandatory=$false)]
+  [string]$Date = "",
+
+  [Parameter(Mandatory=$false)]
+  [int]$IntervalSeconds = 60,
+
   [Parameter(Mandatory=$false)]
   [string]$MachineId = "local-dev-machine",
 
   [Parameter(Mandatory=$false)]
   [string]$VerifierIdentity = "cr-verifier-001"
-)]
-  [string]$Command = "help",
-
-  [string]$Intent = "",
-
-  [string]$TargetRepo = (Get-Location).Path,
-
-  [string]$Date = (Get-Date).ToString("yyyy-MM-dd"),
-
-  [int]$IntervalSeconds = 60
 )
 
 Set-StrictMode -Version Latest
