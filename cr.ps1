@@ -1,5 +1,11 @@
 param(
-  [Parameter(Position=0)]
+  [Parameter(Position=0
+  [Parameter(Mandatory=$false)]
+  [string]$MachineId = "local-dev-machine",
+
+  [Parameter(Mandatory=$false)]
+  [string]$VerifierIdentity = "cr-verifier-001"
+)]
   [string]$Command = "help",
 
   [string]$Intent = "",
