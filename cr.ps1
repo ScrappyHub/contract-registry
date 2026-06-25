@@ -188,12 +188,20 @@ switch($Command.ToLowerInvariant()){
     $ClassificationReceiptPath = Join-Path $ProfileRoot "classification\software_classification_receipt.json"
     $LineagePath = Join-Path $ProfileRoot "lineage\lineage.json"
     $LineageReceiptPath = Join-Path $ProfileRoot "lineage\lineage_receipt.json"
+    $TrustRegistryPath = Join-Path $ProfileRoot "trust_registry\trust_registry.json"
+    $TrustRegistryReceiptPath = Join-Path $ProfileRoot "trust_registry\trust_registry_receipt.json"
+    $GovernanceRuntimePath = Join-Path $ProfileRoot "governance_runtime\governance_runtime.json"
+    $GovernanceRuntimeReceiptPath = Join-Path $ProfileRoot "governance_runtime\governance_runtime_receipt.json"
     $CapabilityPath = Join-Path $ProfileRoot "capabilities\capability_graph.json"
     $CapabilityReceiptPath = Join-Path $ProfileRoot "capabilities\capability_graph_receipt.json"
     $RiskTopologyPath = Join-Path $ProfileRoot "risk_topology\risk_topology.json"
     $RiskTopologyReceiptPath = Join-Path $ProfileRoot "risk_topology\risk_topology_receipt.json"
     $LineagePath = Join-Path $ProfileRoot "lineage\lineage.json"
     $LineageReceiptPath = Join-Path $ProfileRoot "lineage\lineage_receipt.json"
+    $TrustRegistryPath = Join-Path $ProfileRoot "trust_registry\trust_registry.json"
+    $TrustRegistryReceiptPath = Join-Path $ProfileRoot "trust_registry\trust_registry_receipt.json"
+    $GovernanceRuntimePath = Join-Path $ProfileRoot "governance_runtime\governance_runtime.json"
+    $GovernanceRuntimeReceiptPath = Join-Path $ProfileRoot "governance_runtime\governance_runtime_receipt.json"
     $CapabilityPath = Join-Path $ProfileRoot "capabilities\capability_graph.json"
     $CapabilityReceiptPath = Join-Path $ProfileRoot "capabilities\capability_graph_receipt.json"
     $RiskTopologyPath = Join-Path $ProfileRoot "risk_topology\risk_topology.json"
@@ -213,12 +221,20 @@ switch($Command.ToLowerInvariant()){
     $ClassificationReceipt = Read-JsonSafe -Path $ClassificationReceiptPath
     $Lineage = Read-JsonSafe -Path $LineagePath
     $LineageReceipt = Read-JsonSafe -Path $LineageReceiptPath
+    $TrustRegistry = Read-JsonSafe -Path $TrustRegistryPath
+    $TrustRegistryReceipt = Read-JsonSafe -Path $TrustRegistryReceiptPath
+    $GovernanceRuntime = Read-JsonSafe -Path $GovernanceRuntimePath
+    $GovernanceRuntimeReceipt = Read-JsonSafe -Path $GovernanceRuntimeReceiptPath
     $CapabilityGraph = Read-JsonSafe -Path $CapabilityPath
     $CapabilityReceipt = Read-JsonSafe -Path $CapabilityReceiptPath
     $RiskTopology = Read-JsonSafe -Path $RiskTopologyPath
     $RiskTopologyReceipt = Read-JsonSafe -Path $RiskTopologyReceiptPath
     $Lineage = Read-JsonSafe -Path $LineagePath
     $LineageReceipt = Read-JsonSafe -Path $LineageReceiptPath
+    $TrustRegistry = Read-JsonSafe -Path $TrustRegistryPath
+    $TrustRegistryReceipt = Read-JsonSafe -Path $TrustRegistryReceiptPath
+    $GovernanceRuntime = Read-JsonSafe -Path $GovernanceRuntimePath
+    $GovernanceRuntimeReceipt = Read-JsonSafe -Path $GovernanceRuntimeReceiptPath
     $CapabilityGraph = Read-JsonSafe -Path $CapabilityPath
     $CapabilityReceipt = Read-JsonSafe -Path $CapabilityReceiptPath
     $RiskTopology = Read-JsonSafe -Path $RiskTopologyPath
@@ -354,6 +370,41 @@ switch($Command.ToLowerInvariant()){
       Write-Host ""
     }
 
+    if($TrustRegistry){
+      Write-Host "Trust Registry" -ForegroundColor Green
+      Write-Host ("  registry_state: " + $TrustRegistry.registry_state)
+      Write-Host ("  trusted_count: " + $TrustRegistry.trusted_count)
+      Write-Host ("  conditional_count: " + $TrustRegistry.conditional_count)
+      Write-Host ("  denied_or_untrusted_count: " + $TrustRegistry.denied_or_untrusted_count)
+
+      if($TrustRegistryReceipt){
+        Write-Host ("  report: " + $TrustRegistryReceipt.report)
+        Write-Host ("  receipt: " + $TrustRegistryReceiptPath)
+      }
+
+      Write-Host ""
+    }
+
+    if($GovernanceRuntime){
+      Write-Host "Governance Runtime" -ForegroundColor Green
+      Write-Host ("  registry_state: " + $GovernanceRuntime.registry_state)
+      Write-Host ("  clearance_level: " + $GovernanceRuntime.clearance_level)
+      Write-Host ("  policy_decision: " + $GovernanceRuntime.policy_decision)
+      Write-Host ("  runtime_mode: " + $GovernanceRuntime.runtime_mode)
+      Write-Host ("  governance_mode: " + $GovernanceRuntime.governance_mode)
+
+      Write-Host "  scope_decisions:"
+      foreach($d in @($GovernanceRuntime.decisions | Select-Object -First 12)){
+        Write-Host ("    " + $d.scope + ": " + $d.decision)
+      }
+
+      if($GovernanceRuntimeReceipt){
+        Write-Host ("  report: " + $GovernanceRuntimeReceipt.report)
+        Write-Host ("  receipt: " + $GovernanceRuntimeReceiptPath)
+      }
+
+      Write-Host ""
+    }
     if($Behavior){
       Write-Host "Behavioral Drift" -ForegroundColor Green
       Write-Host ("  change_count: " + $Behavior.change_count)
