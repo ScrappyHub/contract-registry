@@ -25,7 +25,8 @@ function Show-Help {
   Write-Host "  watch -TargetRepo <path> [-IntervalSeconds 60]"
   Write-Host "  status -TargetRepo <path>"
   Write-Host "  notify -TargetRepo <path>
-  risk -TargetRepo <path>"
+  risk -TargetRepo <path>
+  verified-runtime -TargetRepo <path> [-MachineId <id>] [-VerifierIdentity <id>]"
   Write-Host "  alerts -TargetRepo <path>"
   Write-Host ""
 }
@@ -455,6 +456,26 @@ switch($Command.ToLowerInvariant()){
     exit $LASTEXITCODE
   }
 
+  "verified-runtime" {
+    $Script = Join-Path $PSScriptRoot "scripts\cr_verified_runtime_v1.ps1"
+    if(-not (Test-Path -LiteralPath $Script -PathType Leaf)){
+      throw "MISSING_VERIFIED_RUNTIME_SCRIPT"
+    }
+
+    $Args = @(
+      "-TargetRepo", $TargetRepo
+    )
+
+    if($PSBoundParameters.ContainsKey("MachineId")){
+      $Args += @("-MachineId", $MachineId)
+    }
+
+    if($PSBoundParameters.ContainsKey("VerifierIdentity")){
+      $Args += @("-VerifierIdentity", $VerifierIdentity)
+    }
+
+    & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $Script @Args
+  }
   default {
     Show-Help
     throw ("UNKNOWN_COMMAND: " + $Command)
