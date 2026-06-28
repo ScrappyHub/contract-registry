@@ -18,7 +18,13 @@ param(
   [string]$MachineId = "local-dev-machine",
 
   [Parameter(Mandatory=$false)]
-  [string]$VerifierIdentity = "cr-verifier-001"
+  [string]$VerifierIdentity = "cr-verifier-001",
+
+  [Parameter(Mandatory=$false)]
+  [string]$Operation = "status",
+
+  [Parameter(Mandatory=$false)]
+  [string]$Requester = "local-user"
 )
 
 Set-StrictMode -Version Latest
@@ -36,7 +42,8 @@ function Show-Help {
   Write-Host "  status -TargetRepo <path>"
   Write-Host "  notify -TargetRepo <path>
   risk -TargetRepo <path>
-  verified-runtime -TargetRepo <path> [-MachineId <id>] [-VerifierIdentity <id>]"
+  verified-runtime -TargetRepo <path> [-MachineId <id>] [-VerifierIdentity <id>]
+  decision -TargetRepo <path> -Operation <operation> [-Requester <id>] [-MachineId <id>]"
   Write-Host "  alerts -TargetRepo <path>"
   Write-Host ""
 }
@@ -517,6 +524,21 @@ switch($Command.ToLowerInvariant()){
     exit $LASTEXITCODE
   }
 
+  "decision" {
+    $Script = Join-Path $PSScriptRoot "scripts\cr_policy_decision_engine_v1.ps1"
+    if(-not (Test-Path -LiteralPath $Script -PathType Leaf)){
+      throw "MISSING_POLICY_DECISION_ENGINE_SCRIPT"
+    }
+
+    $Args = @(
+      "-TargetRepo", $TargetRepo,
+      "-Operation", $Operation,
+      "-Requester", $Requester,
+      "-MachineId", $MachineId
+    )
+
+    & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $Script @Args
+  }
   "verified-runtime" {
     $Script = Join-Path $PSScriptRoot "scripts\cr_verified_runtime_v1.ps1"
     if(-not (Test-Path -LiteralPath $Script -PathType Leaf)){
