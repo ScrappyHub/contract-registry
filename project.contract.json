@@ -1,0 +1,37 @@
+{
+  "project_id": "contract-registry",
+  "canonical_name": "Contract Registry",
+  "ecosystem": {
+    "registry_schema": "constellation.service.registry.v1",
+    "service_id": "contract-registry",
+    "ecosystem_family": "unassigned",
+    "ecosystem_families": [
+      "unassigned"
+    ],
+    "layer": "governance.repository-intelligence",
+    "role": "Deterministic Software MRI for all software in the ecosystem: governance IDS and repository shadow-profile engine.",
+    "standalone_first": true,
+    "upstream_services": [
+      "archive-recall"
+    ],
+    "downstream_users": [
+      "proteusops",
+      "assemblelink",
+      "live-state-surgeon",
+      "operators"
+    ],
+    "contract_families": [
+      "repository",
+      "contract",
+      "snapshot",
+      "capability",
+      "drift",
+      "risk",
+      "report",
+      "receipt"
+    ],
+    "service_map_path": "C:\\dev\\Constellation\\ecosystem\\SERVICE_MAP.md",
+    "registry_path": "C:\\dev\\Constellation\\registry\\services.json",
+    "integration_doc_path": "docs/canonical/ECOSYSTEM_INTEGRATION.md"
+  }
+}
